@@ -656,6 +656,13 @@ def health():
     return {'status': 'ok'}
 
 
+@app.get('/test-alert')
+def test_alert():
+    """Temp test endpoint — fires the quota alert email directly."""
+    _send_quota_alert(1400)
+    return {'sent': True}
+
+
 @app.get('/config')
 def config():
     """Tells the UI whether the server has a Gemini key pre-configured.
