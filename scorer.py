@@ -1,0 +1,281 @@
+"""
+Scorer — fetches job description from a URL and scores it against a resume
+using Gemini 2.5 Flash.
+
+Standalone module — no dependency on the job agent.
+Requires GEMINI_API_KEY environment variable.
+"""
+
+import json
+import os
+import re
+import time
+
+import requests
+from bs4 import BeautifulSoup
+from dotenv import load_dotenv
+
+# Load .env for local dev (no-op in production where env vars are set directly)
+load_dotenv()
+
+GEMINI_MODEL = 'gemini-2.0-flash'
+GEMINI_URL = (
+    f'https://generativelanguage.googleapis.com/v1beta/models/'
+    f'{GEMINI_MODEL}:generateContent'
+)
+
+
+# ── Gemini call ───────────────────────────────────────────────────────────────
+
+def _call_gemini(prompt: str) -> str:
+    api_key = os.environ.get('GEMINI_API_KEY', '')
+    if not api_key:
+        raise RuntimeError('GEMINI_API_KEY environment variable is not set.')
+
+    payload = {
+        'contents': [{'parts': [{'text': prompt}]}],
+        'generationConfig': {
+            'temperature': 0.2,
+            'maxOutputTokens': 2048,
+            'thinkingConfig': {'thinkingBudget': 0},
+        },
+    }
+    last_exc = None
+    for attempt in range(3):
+        try:
+            resp = requests.post(
+                GEMINI_URL,
+                headers={'Content-Type': 'application/json'},
+                params={'key': api_key},
+                json=payload,
+                timeout=30,
+            )
+            if resp.status_code in (429, 500, 503) and attempt < 2:
+                time.sleep(2 * (attempt + 1))
+                continue
+            resp.raise_for_status()
+            return resp.json()['candidates'][0]['content']['parts'][0]['text']
+        except requests.exceptions.RequestException as e:
+            last_exc = e
+            time.sleep(2 * (attempt + 1))
+    raise last_exc
+
+
+# ── Job description fetching ──────────────────────────────────────────────────
+
+def fetch_job_description(url: str) -> str:
+    """Fetch and clean job description text from a URL.
+    Supports LinkedIn, WTTJ (Algolia), and generic HTML pages.
+    Returns plain text (up to 4000 chars), or '' on failure.
+    """
+    url_lower = url.lower()
+    if 'linkedin.com/jobs/view/' in url_lower:
+        return _fetch_linkedin(url)
+    if 'welcometothejungle.com' in url_lower:
+        return _fetch_wttj(url)
+    return _fetch_generic(url)
+
+
+def _fetch_linkedin(url: str) -> str:
+    m = re.search(r'-(\d+)(?:\?|$)', url)
+    if not m:
+        return ''
+    job_id = m.group(1)
+    api_url = f'https://www.linkedin.com/jobs-guest/jobs/api/jobPosting/{job_id}'
+    try:
+        resp = requests.get(api_url, headers={'User-Agent': 'Mozilla/5.0'}, timeout=15)
+        if resp.status_code != 200:
+            return ''
+        match = re.search(r'show-more-less-html__markup[^>]*>(.*?)</div', resp.text, re.DOTALL)
+        if not match:
+            return ''
+        text = re.sub(r'<[^>]+>', ' ', match.group(1))
+        return ' '.join(text.split())[:4000]
+    except Exception:
+        return ''
+
+
+def _fetch_wttj(url: str) -> str:
+    m = re.search(r'/companies/([^/]+)/jobs/([^?&#]+)', url)
+    if not m:
+        return _fetch_generic(url)
+    job_slug = m.group(2)
+    try:
+        algolia_url = 'https://CSEKHVMS53-dsn.algolia.net/1/indexes/wttj_jobs_production_fr/query'
+        headers = {
+            'X-Algolia-Application-Id': 'CSEKHVMS53',
+            'X-Algolia-API-Key': '4bd8f6215d0cc52b26430765769e65a0',
+            'Content-Type': 'application/json',
+            'Origin': 'https://www.welcometothejungle.com',
+            'Referer': 'https://www.welcometothejungle.com/',
+        }
+        query = job_slug.replace('-', ' ')
+        payload = {'params': f'query={query}&hitsPerPage=5'}
+        resp = requests.post(algolia_url, headers=headers, json=payload, timeout=15)
+        if resp.ok:
+            for hit in resp.json().get('hits', []):
+                if hit.get('slug') == job_slug:
+                    desc = hit.get('description') or hit.get('profile') or ''
+                    if isinstance(desc, dict):
+                        desc = ' '.join(str(v) for v in desc.values())
+                    if desc:
+                        return str(desc)[:4000]
+    except Exception:
+        pass
+    return _fetch_generic(url)
+
+
+def _fetch_generic(url: str) -> str:
+    try:
+        headers = {
+            'User-Agent': (
+                'Mozilla/5.0 (Windows NT 10.0; Win64; x64) '
+                'AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
+            )
+        }
+        resp = requests.get(url, headers=headers, timeout=15)
+        if resp.status_code != 200:
+            return ''
+        soup = BeautifulSoup(resp.text, 'html.parser')
+        ld = soup.find('script', type='application/ld+json')
+        if ld and ld.string:
+            try:
+                data = json.loads(ld.string)
+                desc = data.get('description', '')
+                if desc and len(desc) > 100:
+                    return BeautifulSoup(desc, 'html.parser').get_text(' ', strip=True)[:4000]
+            except Exception:
+                pass
+        for tag in soup(['script', 'style', 'nav', 'footer', 'header']):
+            tag.decompose()
+        return soup.get_text(' ', strip=True)[:4000]
+    except Exception:
+        return ''
+
+
+# ── Scoring ───────────────────────────────────────────────────────────────────
+
+def score_fit(url: str, resume_text: str, title: str = '', company: str = '') -> dict:
+    """Fetch job description from URL and score fit against resume_text.
+
+    Returns:
+      {
+        "score": int,           0-100
+        "verdict": str,         Weak | Moderate | Good | Strong
+        "strengths": str,
+        "gaps": str,
+        "recommendation": str,
+        "description_used": bool,
+        "title": str,           inferred or provided
+        "company": str,
+      }
+    """
+    # Infer title from URL slug if not provided
+    if not title:
+        slug = re.sub(r'[-_]', ' ', url.rstrip('/').split('/')[-1].split('?')[0])
+        slug = re.sub(r'[^a-zA-Z\s]', ' ', slug)
+        title = ' '.join(slug.split()).title() or 'Unknown Role'
+
+    description = fetch_job_description(url)
+    has_desc = bool(description and len(description) > 100)
+    desc_section = f'\n\nJOB DESCRIPTION:\n{description[:3000]}' if has_desc else ''
+
+    prompt = f"""You are a senior tech recruiter. Assess this job fit for the candidate.
+
+CANDIDATE RESUME:
+{resume_text[:2500]}
+
+JOB:
+Title: {title}
+Company: {company or "unknown"}{desc_section}
+
+Reply ONLY in this exact JSON format (no markdown, no extra text):
+{{
+  "score": <0-100>,
+  "verdict": "<Weak|Moderate|Good|Strong>",
+  "strengths": "<2-3 concrete matching points>",
+  "gaps": "<2-3 concrete missing requirements>",
+  "recommendation": "<one sentence: apply / apply with cover note / skip>"
+}}
+
+Scoring: Strong 80+, Good 65-79, Moderate 40-64, Weak <40. Be honest and specific."""
+
+    raw = _call_gemini(prompt)
+    obj_match = re.search(r'\{.*\}', raw, re.DOTALL)
+    if not obj_match:
+        raise ValueError(f'Unexpected Gemini response: {raw[:200]}')
+
+    result = json.loads(obj_match.group(0))
+    result['description_used'] = has_desc
+    result.setdefault('title', title)
+    result.setdefault('company', company)
+    result['url'] = url
+    return result
+
+
+def score_fit_batch_urls(urls: list[str], resume_text: str) -> list[dict]:
+    """Fetch descriptions for multiple URLs and score all in ONE Gemini call.
+
+    Returns list of result dicts sorted by score descending.
+    Each dict has same shape as score_fit() plus 'url' and 'description_used'.
+    """
+    # Step 1 — fetch descriptions for all URLs
+    jobs = []
+    for url in urls:
+        slug = re.sub(r'[-_]', ' ', url.rstrip('/').split('/')[-1].split('?')[0])
+        slug = re.sub(r'[^a-zA-Z\s]', ' ', slug)
+        title = ' '.join(slug.split()).title() or 'Unknown Role'
+        description = fetch_job_description(url)
+        has_desc = bool(description and len(description) > 100)
+        jobs.append({
+            'url': url,
+            'title': title,
+            'description': description[:2000] if has_desc else '',
+            'description_used': has_desc,
+        })
+
+    # Step 2 — build one batched prompt
+    job_lines = []
+    for i, j in enumerate(jobs):
+        desc_part = f"\n   Description: {j['description'][:500]}" if j['description'] else ''
+        job_lines.append(f"{i + 1}. {j['title']} — {j['url']}{desc_part}")
+
+    prompt = f"""You are a senior tech recruiter. Score each job's fit for this candidate.
+
+CANDIDATE RESUME:
+{resume_text[:2500]}
+
+JOBS TO SCORE:
+{chr(10).join(job_lines)}
+
+Reply ONLY with a JSON array — one object per job, same order, no extra text:
+[
+  {{
+    "score": <0-100>,
+    "verdict": "<Weak|Moderate|Good|Strong>",
+    "title": "<job title, clean>",
+    "company": "<company name, infer from URL/description if possible>",
+    "strengths": "<2-3 concrete matching points>",
+    "gaps": "<2-3 concrete missing requirements>",
+    "recommendation": "<one sentence: apply / apply with cover note / skip>"
+  }},
+  ...
+]
+
+Scoring: Strong 80+, Good 65-79, Moderate 40-64, Weak <40. Be honest and specific."""
+
+    raw = _call_gemini(prompt)
+    arr_match = re.search(r'\[.*\]', raw, re.DOTALL)
+    if not arr_match:
+        raise ValueError(f'Unexpected Gemini response: {raw[:300]}')
+
+    results = json.loads(arr_match.group(0))
+
+    # Merge url + description_used back in and sort by score desc
+    for i, r in enumerate(results):
+        if i < len(jobs):
+            r['url'] = jobs[i]['url']
+            r['description_used'] = jobs[i]['description_used']
+
+    results.sort(key=lambda x: x.get('score', 0), reverse=True)
+    return results
