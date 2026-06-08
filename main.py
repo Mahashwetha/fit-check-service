@@ -10,8 +10,10 @@ Endpoints:
 """
 
 import os
+import smtplib
 from collections import defaultdict
 from datetime import date
+from email.mime.text import MIMEText
 from fastapi import FastAPI, File, Form, HTTPException, Request, UploadFile
 from fastapi.responses import HTMLResponse, JSONResponse
 from pydantic import BaseModel
@@ -20,12 +22,16 @@ from typing import List
 from resume_parser import parse_resume
 from scorer import score_fit, score_fit_batch_urls
 
-app = FastAPI(title='Fit-Check Service', version='1.2')
+app = FastAPI(title='Fit-Check Service', version='1.3')
 
 # ── Per-IP daily quota ────────────────────────────────────────────────────────
 # Structure: { ip: {"count": int, "date": date} }
 _quota: dict = defaultdict(lambda: {"count": 0, "date": date.today()})
 DAILY_FREE_LIMIT = 50
+
+# ── Global server-wide daily counter ─────────────────────────────────────────
+_global = {"count": 0, "date": date.today(), "alert_sent": False}
+ALERT_THRESHOLD = 1400  # warn at this many total server requests/day
 
 
 def _get_ip(request: Request) -> str:
@@ -46,11 +52,59 @@ def _check_quota(ip: str) -> bool:
 
 
 def _increment_quota(ip: str):
+    """Increment per-IP counter and global counter; fire alert if threshold crossed."""
+    # Per-IP
     entry = _quota[ip]
     if entry["date"] != date.today():
         entry["count"] = 0
         entry["date"] = date.today()
     entry["count"] += 1
+
+    # Global
+    if _global["date"] != date.today():
+        _global["count"] = 0
+        _global["date"] = date.today()
+        _global["alert_sent"] = False
+    _global["count"] += 1
+
+    if _global["count"] >= ALERT_THRESHOLD and not _global["alert_sent"]:
+        _global["alert_sent"] = True
+        _send_quota_alert(_global["count"])
+
+
+def _send_quota_alert(count: int):
+    """Send a one-time email when server-wide daily usage crosses ALERT_THRESHOLD."""
+    smtp_user = os.environ.get("SMTP_USER", "")
+    smtp_pass = os.environ.get("SMTP_PASS", "")
+    alert_to  = os.environ.get("ALERT_EMAIL", "mahashwetha91@gmail.com")
+
+    if not smtp_user or not smtp_pass:
+        print(f"[quota-alert] {count} requests today — SMTP not configured, skipping email.")
+        return
+
+    try:
+        body = (
+            f"Hi,\n\n"
+            f"Your Fit-Check service has hit {count} Gemini requests today.\n"
+            f"The free tier limit is 1,500/day — you're close to exceeding it.\n\n"
+            f"Options:\n"
+            f"  • Let it roll over (resets ~9am Paris time)\n"
+            f"  • Swap to a paid Gemini key in Render dashboard\n\n"
+            f"— Fit-Check Service"
+        )
+        msg = MIMEText(body)
+        msg["Subject"] = f"⚠️ Fit-Check: {count} API calls today (limit 1,500)"
+        msg["From"]    = smtp_user
+        msg["To"]      = alert_to
+
+        with smtplib.SMTP("smtp.gmail.com", 587) as s:
+            s.starttls()
+            s.login(smtp_user, smtp_pass)
+            s.sendmail(smtp_user, [alert_to], msg.as_string())
+
+        print(f"[quota-alert] Alert sent to {alert_to} at {count} requests.")
+    except Exception as e:
+        print(f"[quota-alert] Failed to send alert: {e}")
 
 
 # ── HTML UI ───────────────────────────────────────────────────────────────────
