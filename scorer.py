@@ -27,10 +27,10 @@ GEMINI_URL = (
 
 # ── Gemini call ───────────────────────────────────────────────────────────────
 
-def _call_gemini(prompt: str) -> str:
-    api_key = os.environ.get('GEMINI_API_KEY', '')
+def _call_gemini(prompt: str, api_key: str = '') -> str:
+    api_key = api_key or os.environ.get('GEMINI_API_KEY', '')
     if not api_key:
-        raise RuntimeError('GEMINI_API_KEY environment variable is not set.')
+        raise RuntimeError('No Gemini API key provided. Enter your key in the form or set GEMINI_API_KEY on the server.')
 
     payload = {
         'contents': [{'parts': [{'text': prompt}]}],
@@ -155,7 +155,7 @@ def _fetch_generic(url: str) -> str:
 
 # ── Scoring ───────────────────────────────────────────────────────────────────
 
-def score_fit(url: str, resume_text: str, title: str = '', company: str = '') -> dict:
+def score_fit(url: str, resume_text: str, title: str = '', company: str = '', api_key: str = '') -> dict:
     """Fetch job description from URL and score fit against resume_text.
 
     Returns:
@@ -200,7 +200,7 @@ Reply ONLY in this exact JSON format (no markdown, no extra text):
 
 Scoring: Strong 80+, Good 65-79, Moderate 40-64, Weak <40. Be honest and specific."""
 
-    raw = _call_gemini(prompt)
+    raw = _call_gemini(prompt, api_key=api_key)
     obj_match = re.search(r'\{.*\}', raw, re.DOTALL)
     if not obj_match:
         raise ValueError(f'Unexpected Gemini response: {raw[:200]}')
@@ -213,7 +213,7 @@ Scoring: Strong 80+, Good 65-79, Moderate 40-64, Weak <40. Be honest and specifi
     return result
 
 
-def score_fit_batch_urls(urls: list[str], resume_text: str) -> list[dict]:
+def score_fit_batch_urls(urls: list[str], resume_text: str, api_key: str = '') -> list[dict]:
     """Fetch descriptions for multiple URLs and score all in ONE Gemini call.
 
     Returns list of result dicts sorted by score descending.
@@ -264,7 +264,7 @@ Reply ONLY with a JSON array — one object per job, same order, no extra text:
 
 Scoring: Strong 80+, Good 65-79, Moderate 40-64, Weak <40. Be honest and specific."""
 
-    raw = _call_gemini(prompt)
+    raw = _call_gemini(prompt, api_key=api_key)
     arr_match = re.search(r'\[.*\]', raw, re.DOTALL)
     if not arr_match:
         raise ValueError(f'Unexpected Gemini response: {raw[:300]}')

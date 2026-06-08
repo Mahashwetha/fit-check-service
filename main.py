@@ -144,6 +144,19 @@ HTML = """<!DOCTYPE html>
   <h1>🎯 Fit-Check</h1>
   <p class="subtitle">Score job postings against your resume using Gemini AI.</p>
 
+  <!-- ── API Key (shared across both tabs) ── -->
+  <div class="field" style="background:#f7f8ff;border:1px solid #e2e8f0;border-radius:8px;padding:14px 16px;margin-bottom:20px;">
+    <label style="margin-bottom:4px;">🔑 Your Gemini API Key</label>
+    <div style="display:flex;gap:8px;align-items:center;">
+      <input type="password" id="api-key" placeholder="AIzaSy..." style="flex:1;margin:0;"
+        oninput="saveKey(this.value)">
+      <button type="button" onclick="toggleKey()" style="padding:8px 12px;background:#edf2f7;border:1px solid #e2e8f0;border-radius:6px;font-size:12px;cursor:pointer;white-space:nowrap;">Show</button>
+    </div>
+    <div style="font-size:11px;color:#a0aec0;margin-top:5px;">
+      Free key at <a href="https://aistudio.google.com/apikey" target="_blank" style="color:#667eea;">aistudio.google.com/apikey</a> — never stored on server, sent only for your request.
+    </div>
+  </div>
+
   <div class="tabs">
     <div class="tab active" onclick="switchTab('single', this)">Single Job</div>
     <div class="tab" onclick="switchTab('multi', this)">Compare Multiple Jobs</div>
@@ -202,6 +215,17 @@ HTML = """<!DOCTYPE html>
 </div>
 
 <script>
+// ── API key persistence ──
+function saveKey(v) { try { localStorage.setItem('fitcheck_key', v); } catch(e) {} }
+function loadKey() { try { return localStorage.getItem('fitcheck_key') || ''; } catch(e) { return ''; } }
+function toggleKey() {
+  const inp = document.getElementById('api-key');
+  const btn = event.target;
+  if (inp.type === 'password') { inp.type = 'text'; btn.textContent = 'Hide'; }
+  else { inp.type = 'password'; btn.textContent = 'Show'; }
+}
+window.addEventListener('load', () => { document.getElementById('api-key').value = loadKey(); });
+
 // ── Tab switching ──
 function switchTab(name, el) {
   document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
@@ -310,6 +334,7 @@ document.getElementById('form-single').addEventListener('submit', async e => {
   fd.append('url',     document.getElementById('s-url').value.trim());
   fd.append('title',   document.getElementById('s-title').value.trim());
   fd.append('company', document.getElementById('s-company').value.trim());
+  fd.append('api_key', document.getElementById('api-key').value.trim());
   fd.append('resume',  document.getElementById('s-resume').files[0]);
 
   try {
@@ -340,6 +365,7 @@ document.getElementById('form-multi').addEventListener('submit', async e => {
 
   const fd = new FormData();
   urls.forEach(u => fd.append('urls', u));
+  fd.append('api_key', document.getElementById('api-key').value.trim());
   fd.append('resume', document.getElementById('m-resume').files[0]);
 
   try {
@@ -370,6 +396,7 @@ async def fit_check_upload(
     url: str = Form(...),
     title: str = Form(''),
     company: str = Form(''),
+    api_key: str = Form(''),
     resume: UploadFile = File(...),
 ):
     file_bytes = await resume.read()
@@ -382,7 +409,7 @@ async def fit_check_upload(
     if len(resume_text.strip()) < 50:
         raise HTTPException(status_code=400, detail='Could not extract text from resume. Try a different file.')
     try:
-        result = score_fit(url, resume_text, title=title, company=company)
+        result = score_fit(url, resume_text, title=title, company=company, api_key=api_key)
     except RuntimeError as e:
         raise HTTPException(status_code=503, detail=str(e))
     except Exception as e:
@@ -395,6 +422,7 @@ async def fit_check_upload(
 @app.post('/fit-check/batch')
 async def fit_check_batch(
     urls: List[str] = Form(...),
+    api_key: str = Form(''),
     resume: UploadFile = File(...),
 ):
     if not urls:
@@ -418,7 +446,7 @@ async def fit_check_batch(
         raise HTTPException(status_code=400, detail='Could not extract text from resume.')
 
     try:
-        results = score_fit_batch_urls(valid_urls, resume_text)
+        results = score_fit_batch_urls(valid_urls, resume_text, api_key=api_key)
     except RuntimeError as e:
         raise HTTPException(status_code=503, detail=str(e))
     except Exception as e:
