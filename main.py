@@ -144,8 +144,8 @@ HTML = """<!DOCTYPE html>
   <h1>🎯 Fit-Check</h1>
   <p class="subtitle">Score job postings against your resume using Gemini AI.</p>
 
-  <!-- ── API Key (shared across both tabs) ── -->
-  <div class="field" style="background:#f7f8ff;border:1px solid #e2e8f0;border-radius:8px;padding:14px 16px;margin-bottom:20px;">
+  <!-- ── API Key (only shown when server has no key configured) ── -->
+  <div id="key-section" style="display:none;background:#f7f8ff;border:1px solid #e2e8f0;border-radius:8px;padding:14px 16px;margin-bottom:20px;">
     <label style="margin-bottom:4px;">🔑 Your Gemini API Key</label>
     <div style="display:flex;gap:8px;align-items:center;">
       <input type="password" id="api-key" placeholder="AIzaSy..." style="flex:1;margin:0;"
@@ -224,7 +224,31 @@ function toggleKey() {
   if (inp.type === 'password') { inp.type = 'text'; btn.textContent = 'Hide'; }
   else { inp.type = 'password'; btn.textContent = 'Show'; }
 }
-window.addEventListener('load', () => { document.getElementById('api-key').value = loadKey(); });
+// Returns the api_key to send — empty string when server has its own key
+function getApiKey() {
+  const section = document.getElementById('key-section');
+  if (section.style.display === 'none') return '';
+  return document.getElementById('api-key').value.trim();
+}
+window.addEventListener('load', async () => {
+  try {
+    const res = await fetch('/config');
+    const cfg = await res.json();
+    if (cfg.key_configured) {
+      // Server has a key — hide the field entirely and clear any stale stored key
+      document.getElementById('key-section').style.display = 'none';
+      try { localStorage.removeItem('fitcheck_key'); } catch(e) {}
+    } else {
+      // Server has no key — show the field and restore from localStorage
+      document.getElementById('key-section').style.display = 'block';
+      document.getElementById('api-key').value = loadKey();
+    }
+  } catch(e) {
+    // If /config fails, fall back to showing the field
+    document.getElementById('key-section').style.display = 'block';
+    document.getElementById('api-key').value = loadKey();
+  }
+});
 
 // ── Tab switching ──
 function switchTab(name, el) {
@@ -334,7 +358,7 @@ document.getElementById('form-single').addEventListener('submit', async e => {
   fd.append('url',     document.getElementById('s-url').value.trim());
   fd.append('title',   document.getElementById('s-title').value.trim());
   fd.append('company', document.getElementById('s-company').value.trim());
-  fd.append('api_key', document.getElementById('api-key').value.trim());
+  fd.append('api_key', getApiKey());
   fd.append('resume',  document.getElementById('s-resume').files[0]);
 
   try {
@@ -365,7 +389,7 @@ document.getElementById('form-multi').addEventListener('submit', async e => {
 
   const fd = new FormData();
   urls.forEach(u => fd.append('urls', u));
-  fd.append('api_key', document.getElementById('api-key').value.trim());
+  fd.append('api_key', getApiKey());
   fd.append('resume', document.getElementById('m-resume').files[0]);
 
   try {
@@ -480,3 +504,11 @@ def fit_check_json(body: FitCheckJSON):
 @app.get('/health')
 def health():
     return {'status': 'ok'}
+
+
+@app.get('/config')
+def config():
+    """Tells the UI whether the server has a Gemini key pre-configured.
+    If yes → hide the key field. If no → show it so users bring their own.
+    """
+    return {'key_configured': bool(os.environ.get('GEMINI_API_KEY', ''))}
