@@ -192,6 +192,33 @@ HTML = """<!DOCTYPE html>
   .spinner { display: inline-block; width: 18px; height: 18px; border: 2px solid rgba(255,255,255,.4); border-top-color: white; border-radius: 50%; animation: spin .7s linear infinite; margin-right: 8px; vertical-align: middle; }
   @keyframes spin { to { transform: rotate(360deg); } }
   hr.divider { border: none; border-top: 1px solid #edf2f7; margin: 24px 0; }
+
+  /* Footer */
+  .footer {
+    margin-top: 32px; padding-top: 20px;
+    border-top: 1px solid #edf2f7;
+    display: flex; align-items: center; justify-content: space-between;
+    flex-wrap: wrap; gap: 12px;
+  }
+  .footer-stats {
+    font-size: 11px; color: #a0aec0;
+    display: flex; align-items: center; gap: 6px;
+  }
+  .footer-stats .count {
+    background: #edf2f7; color: #4a5568;
+    padding: 2px 8px; border-radius: 10px;
+    font-weight: 700; font-size: 11px;
+  }
+  .footer-links { display: flex; gap: 8px; }
+  .footer-btn {
+    display: inline-flex; align-items: center; gap: 5px;
+    padding: 6px 12px; border-radius: 6px;
+    font-size: 12px; font-weight: 600; text-decoration: none;
+    transition: opacity .15s;
+  }
+  .footer-btn:hover { opacity: .8; }
+  .footer-btn.linkedin { background: #0a66c2; color: white; }
+  .footer-btn.github   { background: #24292f; color: white; }
 </style>
 </head>
 <body>
@@ -267,6 +294,24 @@ HTML = """<!DOCTYPE html>
     </form>
     <div id="m-result"></div>
   </div>
+
+  <!-- ── Footer ── -->
+  <div class="footer">
+    <div class="footer-stats">
+      <span>🔢 Today's checks:</span>
+      <span class="count" id="stats-count">…</span>
+    </div>
+    <div class="footer-links">
+      <a class="footer-btn linkedin" href="https://linkedin.com/in/mahashwetha-rao" target="_blank">
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="currentColor"><path d="M19 0h-14c-2.761 0-5 2.239-5 5v14c0 2.761 2.239 5 5 5h14c2.762 0 5-2.239 5-5v-14c0-2.761-2.238-5-5-5zm-11 19h-3v-10h3v10zm-1.5-11.268c-.966 0-1.75-.784-1.75-1.75s.784-1.75 1.75-1.75 1.75.784 1.75 1.75-.784 1.75-1.75 1.75zm13.5 11.268h-3v-5.604c0-1.337-.027-3.063-1.867-3.063-1.869 0-2.155 1.46-2.155 2.967v5.7h-3v-10h2.881v1.367h.041c.401-.761 1.381-1.563 2.845-1.563 3.042 0 3.604 2.002 3.604 4.604v5.592z"/></svg>
+        LinkedIn
+      </a>
+      <a class="footer-btn github" href="https://github.com/Mahashwetha/fit-check-service" target="_blank">
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="currentColor"><path d="M12 0c-6.626 0-12 5.373-12 12 0 5.302 3.438 9.8 8.207 11.387.599.111.793-.261.793-.577v-2.234c-3.338.726-4.033-1.416-4.033-1.416-.546-1.387-1.333-1.756-1.333-1.756-1.089-.745.083-.729.083-.729 1.205.084 1.839 1.237 1.839 1.237 1.07 1.834 2.807 1.304 3.492.997.107-.775.418-1.305.762-1.604-2.665-.305-5.467-1.334-5.467-5.931 0-1.311.469-2.381 1.236-3.221-.124-.303-.535-1.524.117-3.176 0 0 1.008-.322 3.301 1.23.957-.266 1.983-.399 3.003-.404 1.02.005 2.047.138 3.006.404 2.291-1.552 3.297-1.23 3.297-1.23.653 1.653.242 2.874.118 3.176.77.84 1.235 1.911 1.235 3.221 0 4.609-2.807 5.624-5.479 5.921.43.372.823 1.102.823 2.222v3.293c0 .319.192.694.801.576 4.765-1.589 8.199-6.086 8.199-11.386 0-6.627-5.373-12-12-12z"/></svg>
+        GitHub
+      </a>
+    </div>
+  </div>
 </div>
 
 <script>
@@ -286,6 +331,7 @@ function getApiKey() {
   return document.getElementById('api-key').value.trim();
 }
 window.addEventListener('load', async () => {
+  loadStats();
   try {
     const res = await fetch('/config');
     const cfg = await res.json();
@@ -304,6 +350,17 @@ window.addEventListener('load', async () => {
     document.getElementById('api-key').value = loadKey();
   }
 });
+
+// ── Footer stats ──
+async function loadStats() {
+  try {
+    const res = await fetch('/stats');
+    const d = await res.json();
+    document.getElementById('stats-count').textContent = d.requests_today;
+  } catch(e) {
+    document.getElementById('stats-count').textContent = '—';
+  }
+}
 
 // ── Quota limit UI ──
 function showQuotaPrompt(outEl, retryFn) {
@@ -457,6 +514,7 @@ async function submitSingle(overrideKey) {
       throw new Error(data.detail || JSON.stringify(data));
     }
     out.innerHTML = renderSingle(data);
+    loadStats();
   } catch(err) {
     out.innerHTML = `<div class="error-box">❌ ${err.message}</div>`;
   } finally {
@@ -494,6 +552,7 @@ async function submitMulti(overrideKey) {
       throw new Error(data.detail || JSON.stringify(data));
     }
     out.innerHTML = renderBatch(data.results);
+    loadStats();
   } catch(err) {
     out.innerHTML = `<div class="error-box">❌ ${err.message}</div>`;
   } finally {
