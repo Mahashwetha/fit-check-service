@@ -31,7 +31,7 @@ DAILY_FREE_LIMIT = 50
 
 # ── Global server-wide daily counter ─────────────────────────────────────────
 _global = {"count": 0, "date": date.today(), "alert_sent": False}
-ALERT_THRESHOLD = 1400  # warn at this many total server requests/day
+ALERT_THRESHOLD = 2  # warn at this many total server requests/day
 
 
 def _get_ip(request: Request) -> str:
