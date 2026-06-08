@@ -10,7 +10,9 @@ Endpoints:
 """
 
 import os
-from fastapi import FastAPI, File, Form, HTTPException, UploadFile
+from collections import defaultdict
+from datetime import date
+from fastapi import FastAPI, File, Form, HTTPException, Request, UploadFile
 from fastapi.responses import HTMLResponse, JSONResponse
 from pydantic import BaseModel
 from typing import List
@@ -18,7 +20,37 @@ from typing import List
 from resume_parser import parse_resume
 from scorer import score_fit, score_fit_batch_urls
 
-app = FastAPI(title='Fit-Check Service', version='1.1')
+app = FastAPI(title='Fit-Check Service', version='1.2')
+
+# ── Per-IP daily quota ────────────────────────────────────────────────────────
+# Structure: { ip: {"count": int, "date": date} }
+_quota: dict = defaultdict(lambda: {"count": 0, "date": date.today()})
+DAILY_FREE_LIMIT = 50
+
+
+def _get_ip(request: Request) -> str:
+    """Best-effort client IP (works behind Render's proxy)."""
+    forwarded = request.headers.get("x-forwarded-for")
+    if forwarded:
+        return forwarded.split(",")[0].strip()
+    return request.client.host if request.client else "unknown"
+
+
+def _check_quota(ip: str) -> bool:
+    """Returns True if the IP is within the free daily limit."""
+    entry = _quota[ip]
+    if entry["date"] != date.today():
+        entry["count"] = 0
+        entry["date"] = date.today()
+    return entry["count"] < DAILY_FREE_LIMIT
+
+
+def _increment_quota(ip: str):
+    entry = _quota[ip]
+    if entry["date"] != date.today():
+        entry["count"] = 0
+        entry["date"] = date.today()
+    entry["count"] += 1
 
 
 # ── HTML UI ───────────────────────────────────────────────────────────────────
@@ -134,6 +166,12 @@ HTML = """<!DOCTYPE html>
   .desc-chip.ok { background: #c6f6d5; color: #276749; }
 
   .error-box { background: #fff5f5; border: 1px solid #fed7d7; border-radius: 8px; padding: 12px 16px; color: #c53030; font-size: 13px; margin-top: 20px; }
+  .quota-box { background: #fffbeb; border: 1px solid #f6e05e; border-radius: 8px; padding: 16px; margin-top: 20px; font-size: 13px; color: #744210; }
+  .quota-box strong { display: block; margin-bottom: 6px; font-size: 14px; }
+  .quota-box a { color: #667eea; font-weight: 600; }
+  .quota-key-row { display: flex; gap: 8px; align-items: center; margin-top: 10px; }
+  .quota-key-row input { flex: 1; padding: 8px 10px; border: 1px solid #e2e8f0; border-radius: 6px; font-size: 13px; font-family: inherit; }
+  .quota-key-row button { padding: 8px 14px; background: linear-gradient(135deg,#667eea,#764ba2); color: white; border: none; border-radius: 6px; font-size: 12px; font-weight: 600; cursor: pointer; white-space: nowrap; }
   .spinner { display: inline-block; width: 18px; height: 18px; border: 2px solid rgba(255,255,255,.4); border-top-color: white; border-radius: 50%; animation: spin .7s linear infinite; margin-right: 8px; vertical-align: middle; }
   @keyframes spin { to { transform: rotate(360deg); } }
   hr.divider { border: none; border-top: 1px solid #edf2f7; margin: 24px 0; }
@@ -250,6 +288,37 @@ window.addEventListener('load', async () => {
   }
 });
 
+// ── Quota limit UI ──
+function showQuotaPrompt(outEl, retryFn) {
+  outEl.innerHTML = `
+    <div class="quota-box">
+      <strong>🚦 You've used your 50 free checks today</strong>
+      You can continue with your own free Gemini API key — resets tomorrow otherwise.<br>
+      Get one in 30 seconds at <a href="https://aistudio.google.com/apikey" target="_blank">aistudio.google.com/apikey</a>
+      <div class="quota-key-row">
+        <input type="password" id="quota-key-input" placeholder="Paste your key here (AIzaSy...)">
+        <button onclick="applyQuotaKey(this, arguments[0])">Continue →</button>
+      </div>
+      <div style="font-size:11px;color:#a0aec0;margin-top:5px;">Key is only used for your requests — never stored on the server.</div>
+    </div>`;
+  // store retry callback so applyQuotaKey can call it
+  outEl._retryFn = retryFn;
+}
+
+function applyQuotaKey(btn, ev) {
+  const box = btn.closest('.quota-box');
+  const keyVal = document.getElementById('quota-key-input').value.trim();
+  if (!keyVal) { alert('Please paste a key first.'); return; }
+  // Save to localStorage and show the key section for future visits
+  saveKey(keyVal);
+  document.getElementById('api-key').value = keyVal;
+  document.getElementById('key-section').style.display = 'block';
+  // Clear the quota box and retry the submission
+  const outEl = box.closest('[id$="-result"]');
+  outEl.innerHTML = '';
+  if (outEl._retryFn) outEl._retryFn(keyVal);
+}
+
 // ── Tab switching ──
 function switchTab(name, el) {
   document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
@@ -346,36 +415,41 @@ function renderBatch(results) {
 }
 
 // ── Single form submit ──
-document.getElementById('form-single').addEventListener('submit', async e => {
-  e.preventDefault();
+async function submitSingle(overrideKey) {
   const btn = document.getElementById('s-btn');
   const out = document.getElementById('s-result');
   btn.disabled = true;
   btn.innerHTML = '<span class="spinner"></span>Analysing…';
-  out.innerHTML = '';
+  if (!overrideKey) out.innerHTML = '';
 
   const fd = new FormData();
   fd.append('url',     document.getElementById('s-url').value.trim());
   fd.append('title',   document.getElementById('s-title').value.trim());
   fd.append('company', document.getElementById('s-company').value.trim());
-  fd.append('api_key', getApiKey());
+  fd.append('api_key', overrideKey || getApiKey());
   fd.append('resume',  document.getElementById('s-resume').files[0]);
 
   try {
     const resp = await fetch('/fit-check', { method: 'POST', body: fd });
     const data = await resp.json();
-    if (!resp.ok) throw new Error(data.detail || JSON.stringify(data));
+    if (!resp.ok) {
+      if (data.detail === 'daily_limit_reached') {
+        showQuotaPrompt(out, k => submitSingle(k));
+        return;
+      }
+      throw new Error(data.detail || JSON.stringify(data));
+    }
     out.innerHTML = renderSingle(data);
   } catch(err) {
     out.innerHTML = `<div class="error-box">❌ ${err.message}</div>`;
   } finally {
     btn.disabled = false; btn.innerHTML = 'Analyse Fit';
   }
-});
+}
+document.getElementById('form-single').addEventListener('submit', e => { e.preventDefault(); submitSingle(); });
 
 // ── Multi form submit ──
-document.getElementById('form-multi').addEventListener('submit', async e => {
-  e.preventDefault();
+async function submitMulti(overrideKey) {
   const btn = document.getElementById('m-btn');
   const out = document.getElementById('m-result');
   btn.disabled = true;
@@ -385,24 +459,31 @@ document.getElementById('form-multi').addEventListener('submit', async e => {
   if (!urls.length) { out.innerHTML = '<div class="error-box">❌ No valid URLs found.</div>'; btn.disabled = false; return; }
 
   btn.innerHTML = `<span class="spinner"></span>Fetching & scoring ${urls.length} jobs…`;
-  out.innerHTML = '';
+  if (!overrideKey) out.innerHTML = '';
 
   const fd = new FormData();
   urls.forEach(u => fd.append('urls', u));
-  fd.append('api_key', getApiKey());
+  fd.append('api_key', overrideKey || getApiKey());
   fd.append('resume', document.getElementById('m-resume').files[0]);
 
   try {
     const resp = await fetch('/fit-check/batch', { method: 'POST', body: fd });
     const data = await resp.json();
-    if (!resp.ok) throw new Error(data.detail || JSON.stringify(data));
+    if (!resp.ok) {
+      if (data.detail === 'daily_limit_reached') {
+        showQuotaPrompt(out, k => submitMulti(k));
+        return;
+      }
+      throw new Error(data.detail || JSON.stringify(data));
+    }
     out.innerHTML = renderBatch(data.results);
   } catch(err) {
     out.innerHTML = `<div class="error-box">❌ ${err.message}</div>`;
   } finally {
     btn.disabled = false; btn.innerHTML = 'Compare All Jobs';
   }
-});
+}
+document.getElementById('form-multi').addEventListener('submit', e => { e.preventDefault(); submitMulti(); });
 </script>
 </body>
 </html>"""
@@ -417,12 +498,17 @@ def index():
 
 @app.post('/fit-check')
 async def fit_check_upload(
+    request: Request,
     url: str = Form(...),
     title: str = Form(''),
     company: str = Form(''),
     api_key: str = Form(''),
     resume: UploadFile = File(...),
 ):
+    ip = _get_ip(request)
+    if not api_key and not _check_quota(ip):
+        raise HTTPException(status_code=429, detail='daily_limit_reached')
+
     file_bytes = await resume.read()
     if not file_bytes:
         raise HTTPException(status_code=400, detail='Resume file is empty.')
@@ -438,6 +524,8 @@ async def fit_check_upload(
         raise HTTPException(status_code=503, detail=str(e))
     except Exception as e:
         raise HTTPException(status_code=500, detail=f'Scoring failed: {e}')
+    if not api_key:
+        _increment_quota(ip)
     return JSONResponse(content=result)
 
 
@@ -445,6 +533,7 @@ async def fit_check_upload(
 
 @app.post('/fit-check/batch')
 async def fit_check_batch(
+    request: Request,
     urls: List[str] = Form(...),
     api_key: str = Form(''),
     resume: UploadFile = File(...),
@@ -458,6 +547,11 @@ async def fit_check_batch(
     valid_urls = [u.strip() for u in urls if u.strip().startswith('http')]
     if not valid_urls:
         raise HTTPException(status_code=400, detail='No valid URLs provided.')
+
+    ip = _get_ip(request)
+    # Batch counts as one request against quota
+    if not api_key and not _check_quota(ip):
+        raise HTTPException(status_code=429, detail='daily_limit_reached')
 
     file_bytes = await resume.read()
     if not file_bytes:
@@ -476,6 +570,8 @@ async def fit_check_batch(
     except Exception as e:
         raise HTTPException(status_code=500, detail=f'Batch scoring failed: {e}')
 
+    if not api_key:
+        _increment_quota(ip)
     return JSONResponse(content={'results': results, 'count': len(results)})
 
 
