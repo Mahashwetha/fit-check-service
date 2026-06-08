@@ -239,6 +239,16 @@ HTML = """<!DOCTYPE html>
     </div>
   </div>
 
+  <!-- ── Shared Resume Upload ── -->
+  <div class="field" id="resume-section">
+    <label>📄 Your Resume <span style="font-weight:400;color:#a0aec0">(PDF or DOCX — shared across both tabs)</span></label>
+    <div class="file-drop" id="shared-drop" onclick="document.getElementById('shared-resume').click()">
+      <input type="file" id="shared-resume" accept=".pdf,.docx">
+      <div>Click to upload or drag & drop</div>
+      <div class="file-name" id="shared-fname"></div>
+    </div>
+  </div>
+
   <div class="tabs">
     <div class="tab active" onclick="switchTab('single', this)">Single Job</div>
     <div class="tab" onclick="switchTab('multi', this)">Compare Multiple Jobs</div>
@@ -261,14 +271,6 @@ HTML = """<!DOCTYPE html>
           <input type="text" id="s-company" placeholder="Acme Corp">
         </div>
       </div>
-      <div class="field">
-        <label>Resume (PDF or DOCX)</label>
-        <div class="file-drop" id="s-drop" onclick="document.getElementById('s-resume').click()">
-          <input type="file" id="s-resume" accept=".pdf,.docx" required>
-          <div>📄 Click to upload or drag & drop</div>
-          <div class="file-name" id="s-fname"></div>
-        </div>
-      </div>
       <button type="submit" id="s-btn">Analyse Fit</button>
     </form>
     <div id="s-result"></div>
@@ -281,14 +283,6 @@ HTML = """<!DOCTYPE html>
         <label>Job URLs — one per line</label>
         <textarea id="m-urls" placeholder="https://www.welcometothejungle.com/...&#10;https://www.linkedin.com/jobs/view/...&#10;https://builtin.com/job/..." required></textarea>
         <div class="hint">Paste up to 10 URLs. Descriptions are fetched automatically.</div>
-      </div>
-      <div class="field">
-        <label>Resume (PDF or DOCX)</label>
-        <div class="file-drop" id="m-drop" onclick="document.getElementById('m-resume').click()">
-          <input type="file" id="m-resume" accept=".pdf,.docx" required>
-          <div>📄 Click to upload or drag & drop</div>
-          <div class="file-name" id="m-fname"></div>
-        </div>
       </div>
       <button type="submit" id="m-btn">Compare All Jobs</button>
     </form>
@@ -401,11 +395,11 @@ function switchTab(name, el) {
   document.getElementById('tab-' + name).classList.add('active');
 }
 
-// ── File drop wiring ──
-function wireFileDrop(dropId, inputId, fnameId) {
-  const drop = document.getElementById(dropId);
-  const inp  = document.getElementById(inputId);
-  const fn   = document.getElementById(fnameId);
+// ── Shared file drop wiring ──
+(function() {
+  const drop = document.getElementById('shared-drop');
+  const inp  = document.getElementById('shared-resume');
+  const fn   = document.getElementById('shared-fname');
   inp.addEventListener('change', () => { fn.textContent = inp.files[0]?.name || ''; });
   drop.addEventListener('dragover', e => { e.preventDefault(); drop.classList.add('over'); });
   drop.addEventListener('dragleave', () => drop.classList.remove('over'));
@@ -413,9 +407,9 @@ function wireFileDrop(dropId, inputId, fnameId) {
     e.preventDefault(); drop.classList.remove('over');
     if (e.dataTransfer.files[0]) { inp.files = e.dataTransfer.files; fn.textContent = e.dataTransfer.files[0].name; }
   });
-}
-wireFileDrop('s-drop', 's-resume', 's-fname');
-wireFileDrop('m-drop', 'm-resume', 'm-fname');
+})();
+
+function getResumeFile() { return document.getElementById('shared-resume').files[0]; }
 
 // ── Colour helpers ──
 const C = {
@@ -492,6 +486,7 @@ function renderBatch(results) {
 async function submitSingle(overrideKey) {
   const btn = document.getElementById('s-btn');
   const out = document.getElementById('s-result');
+  if (!getResumeFile()) { out.innerHTML = '<div class="error-box">❌ Please upload your resume first.</div>'; return; }
   btn.disabled = true;
   btn.innerHTML = '<span class="spinner"></span>Analysing…';
   if (!overrideKey) out.innerHTML = '';
@@ -501,7 +496,7 @@ async function submitSingle(overrideKey) {
   fd.append('title',   document.getElementById('s-title').value.trim());
   fd.append('company', document.getElementById('s-company').value.trim());
   fd.append('api_key', overrideKey || getApiKey());
-  fd.append('resume',  document.getElementById('s-resume').files[0]);
+  fd.append('resume',  getResumeFile());
 
   try {
     const resp = await fetch('/fit-check', { method: 'POST', body: fd });
@@ -527,6 +522,7 @@ document.getElementById('form-single').addEventListener('submit', e => { e.preve
 async function submitMulti(overrideKey) {
   const btn = document.getElementById('m-btn');
   const out = document.getElementById('m-result');
+  if (!getResumeFile()) { out.innerHTML = '<div class="error-box">❌ Please upload your resume first.</div>'; btn.disabled = false; return; }
   btn.disabled = true;
 
   const urls = document.getElementById('m-urls').value
@@ -539,7 +535,7 @@ async function submitMulti(overrideKey) {
   const fd = new FormData();
   urls.forEach(u => fd.append('urls', u));
   fd.append('api_key', overrideKey || getApiKey());
-  fd.append('resume', document.getElementById('m-resume').files[0]);
+  fd.append('resume', getResumeFile());
 
   try {
     const resp = await fetch('/fit-check/batch', { method: 'POST', body: fd });
