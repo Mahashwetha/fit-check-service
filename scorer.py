@@ -160,17 +160,18 @@ def score_fit(url: str, resume_text: str, title: str = '', company: str = '', ap
 
     Returns:
       {
-        "score": int,           0-100
+        "score": int,
         "verdict": str,         Weak | Moderate | Good | Strong
-        "strengths": str,
-        "gaps": str,
+        "matched": [...],       list of {skill, evidence}
+        "missing": [...],       list of {skill, required}
+        "partial": [...],       list of {skill, note}
         "recommendation": str,
         "description_used": bool,
-        "title": str,           inferred or provided
+        "title": str,
         "company": str,
+        "url": str,
       }
     """
-    # Infer title from URL slug if not provided
     if not title:
         slug = re.sub(r'[-_]', ' ', url.rstrip('/').split('/')[-1].split('?')[0])
         slug = re.sub(r'[^a-zA-Z\s]', ' ', slug)
@@ -180,7 +181,7 @@ def score_fit(url: str, resume_text: str, title: str = '', company: str = '', ap
     has_desc = bool(description and len(description) > 100)
     desc_section = f'\n\nJOB DESCRIPTION:\n{description[:3000]}' if has_desc else ''
 
-    prompt = f"""You are a senior tech recruiter. Assess this job fit for the candidate.
+    prompt = f"""You are a senior tech recruiter. Do a skill-by-skill fit analysis for this candidate.
 
 CANDIDATE RESUME:
 {resume_text[:2500]}
@@ -193,12 +194,27 @@ Reply ONLY in this exact JSON format (no markdown, no extra text):
 {{
   "score": <0-100>,
   "verdict": "<Weak|Moderate|Good|Strong>",
-  "strengths": "<2-3 concrete matching points>",
-  "gaps": "<2-3 concrete missing requirements>",
+  "matched": [
+    {{"skill": "<skill name>", "evidence": "<where it appears on resume, max 8 words>"}},
+    ...
+  ],
+  "missing": [
+    {{"skill": "<skill name>", "required": "<mandatory or nice-to-have, max 8 words>"}},
+    ...
+  ],
+  "partial": [
+    {{"skill": "<skill name>", "note": "<what they have vs what's needed, max 10 words>"}},
+    ...
+  ],
   "recommendation": "<one sentence: apply / apply with cover note / skip>"
 }}
 
-Scoring: Strong 80+, Good 65-79, Moderate 40-64, Weak <40. Be honest and specific."""
+Rules:
+- matched: skills/experience clearly present on resume (3-6 items)
+- missing: skills explicitly required or preferred in JD but absent from resume (2-5 items)
+- partial: skills where candidate has something related but not exact match (0-3 items)
+- Scoring: Strong 80+, Good 65-79, Moderate 40-64, Weak <40
+- Be specific — use actual skill names, not vague terms like "experience" """
 
     raw = _call_gemini(prompt, api_key=api_key)
     obj_match = re.search(r'\{.*\}', raw, re.DOTALL)
@@ -209,6 +225,9 @@ Scoring: Strong 80+, Good 65-79, Moderate 40-64, Weak <40. Be honest and specifi
     result['description_used'] = has_desc
     result.setdefault('title', title)
     result.setdefault('company', company)
+    result.setdefault('matched', [])
+    result.setdefault('missing', [])
+    result.setdefault('partial', [])
     result['url'] = url
     return result
 

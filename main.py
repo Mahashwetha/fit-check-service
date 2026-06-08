@@ -426,8 +426,37 @@ const C = {
 function c(v) { return C[v] || C.Moderate; }
 
 // ── Single result renderer ──
+function renderSkillRow(icon, bgColor, textColor, skill, detail) {
+  return `<div style="display:flex;align-items:flex-start;gap:10px;padding:7px 10px;border-radius:6px;background:${bgColor};margin-bottom:5px;">
+    <span style="font-size:13px;flex-shrink:0;margin-top:1px;">${icon}</span>
+    <div>
+      <span style="font-weight:700;font-size:13px;color:${textColor};">${skill}</span>
+      <span style="font-size:12px;color:#718096;margin-left:6px;">${detail}</span>
+    </div>
+  </div>`;
+}
+
 function renderSingle(data) {
   const col = c(data.verdict);
+
+  const matchedRows = (data.matched || []).map(m =>
+    renderSkillRow('✅', '#f0fff4', '#276749', m.skill, m.evidence)
+  ).join('');
+
+  const partialRows = (data.partial || []).map(p =>
+    renderSkillRow('⚠️', '#fffff0', '#975a16', p.skill, p.note)
+  ).join('');
+
+  const missingRows = (data.missing || []).map(m =>
+    renderSkillRow('❌', '#fff5f5', '#9b2c2c', m.skill, m.required)
+  ).join('');
+
+  const skillSection = (matchedRows || partialRows || missingRows) ? `
+    <div class="section">
+      <div class="section-title">Skill Breakdown</div>
+      ${matchedRows}${partialRows}${missingRows}
+    </div>` : '';
+
   return `
     <hr class="divider">
     <div class="score-row">
@@ -442,8 +471,7 @@ function renderSingle(data) {
         </div>
       </div>
     </div>
-    <div class="section"><div class="section-title">✅ Strengths</div><div class="section-body">${data.strengths}</div></div>
-    <div class="section"><div class="section-title">⚠️ Gaps</div><div class="section-body">${data.gaps}</div></div>
+    ${skillSection}
     <div class="rec">${data.recommendation}</div>
     <p class="desc-note">${data.description_used
       ? '✓ Full description fetched.'
