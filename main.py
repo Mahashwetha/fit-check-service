@@ -535,7 +535,7 @@ async function submitSingle(overrideKey) {
     const resp = await fetch('/fit-check', { method: 'POST', body: fd });
     const data = await resp.json();
     if (!resp.ok) {
-      if (data.detail === 'daily_limit_reached') {
+      if (data.detail === 'daily_limit_reached' || (data.detail||'').toLowerCase().includes('rate limit')) {
         showQuotaPrompt(out, k => submitSingle(k));
         return;
       }
@@ -574,7 +574,7 @@ async function submitMulti(overrideKey) {
     const resp = await fetch('/fit-check/batch', { method: 'POST', body: fd });
     const data = await resp.json();
     if (!resp.ok) {
-      if (data.detail === 'daily_limit_reached') {
+      if (data.detail === 'daily_limit_reached' || (data.detail||'').toLowerCase().includes('rate limit')) {
         showQuotaPrompt(out, k => submitMulti(k));
         return;
       }
