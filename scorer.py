@@ -107,13 +107,13 @@ def _call_gemini(prompt: str, api_key: str = '') -> str:
                 timeout=30,
             )
             if resp.status_code in (429, 500, 503) and attempt < 2:
-                time.sleep(2 * (attempt + 1))
+                time.sleep(5 * (attempt + 1))  # 5s, 10s
                 continue
             resp.raise_for_status()
             return resp.json()['candidates'][0]['content']['parts'][0]['text']
         except requests.exceptions.RequestException as e:
             last_exc = e
-            time.sleep(2 * (attempt + 1))
+            time.sleep(5 * (attempt + 1))
     raise last_exc
 
 
