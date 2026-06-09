@@ -58,7 +58,3 @@ pip install -r requirements.txt
 # add GEMINI_API_KEY to .env
 uvicorn main:app --reload
 ```
-
-## Deploy
-
-Push to `master` — Render auto-deploys. Set `GEMINI_API_KEY` in the Render dashboard (not in the repo).
