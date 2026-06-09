@@ -1,5 +1,5 @@
 """
-Fit-Check Service — FastAPI app.
+RoleScore — FastAPI app.
 
 Endpoints:
   GET  /                → HTML UI (single + multi-URL tabs)
@@ -20,7 +20,7 @@ from typing import List
 from resume_parser import parse_resume
 from scorer import score_fit, score_fit_batch_urls
 
-app = FastAPI(title='Fit-Check Service', version='1.3')
+app = FastAPI(title='RoleScore', version='1.3')
 
 # ── Per-IP daily quota ────────────────────────────────────────────────────────
 # Structure: { ip: {"count": int, "date": date} }
@@ -77,7 +77,7 @@ HTML = """<!DOCTYPE html>
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Fit-Check — Job Fit Analyser</title>
+<title>RoleScore — Job Fit Analyser</title>
 <style>
   * { box-sizing: border-box; margin: 0; padding: 0; }
   body {
@@ -223,7 +223,7 @@ HTML = """<!DOCTYPE html>
 </head>
 <body>
 <div class="card">
-  <h1>🎯 Fit-Check</h1>
+  <h1>🎯 RoleScore</h1>
   <p class="subtitle">Score job postings against your resume using Gemini AI.</p>
 
   <!-- ── API Key (only shown when server has no key configured) ── -->

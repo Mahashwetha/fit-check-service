@@ -1,4 +1,4 @@
-# Fit-Check Service
+# RoleScore
 
 A lightweight web service that scores how well a job posting matches your resume — instantly, with a skill-by-skill breakdown.
 
