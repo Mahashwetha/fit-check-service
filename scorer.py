@@ -25,6 +25,63 @@ GEMINI_URL = (
 )
 
 
+def _extract_json(raw: str, kind: str = 'object') -> str:
+    """Strip markdown fences and extract the first JSON object or array."""
+    # Remove markdown code fences (```json ... ``` or ``` ... ```)
+    text = re.sub(r'```(?:json)?\s*', '', raw).replace('```', '').strip()
+
+    if kind == 'array':
+        m = re.search(r'\[', text)
+        if not m:
+            raise ValueError(f'No JSON array found in response: {raw[:300]}')
+        start = m.start()
+        depth, in_str, escape = 0, False, False
+        for i, ch in enumerate(text[start:], start):
+            if escape:
+                escape = False
+                continue
+            if ch == '\\' and in_str:
+                escape = True
+                continue
+            if ch == '"':
+                in_str = not in_str
+                continue
+            if in_str:
+                continue
+            if ch == '[':
+                depth += 1
+            elif ch == ']':
+                depth -= 1
+                if depth == 0:
+                    return text[start:i + 1]
+    else:
+        m = re.search(r'\{', text)
+        if not m:
+            raise ValueError(f'No JSON object found in response: {raw[:300]}')
+        start = m.start()
+        depth, in_str, escape = 0, False, False
+        for i, ch in enumerate(text[start:], start):
+            if escape:
+                escape = False
+                continue
+            if ch == '\\' and in_str:
+                escape = True
+                continue
+            if ch == '"':
+                in_str = not in_str
+                continue
+            if in_str:
+                continue
+            if ch == '{':
+                depth += 1
+            elif ch == '}':
+                depth -= 1
+                if depth == 0:
+                    return text[start:i + 1]
+
+    raise ValueError(f'Unbalanced JSON in response: {raw[:300]}')
+
+
 # ── Gemini call ───────────────────────────────────────────────────────────────
 
 def _call_gemini(prompt: str, api_key: str = '') -> str:
@@ -216,11 +273,7 @@ Rules:
 - Be specific — use actual skill names, not vague terms like "experience" """
 
     raw = _call_gemini(prompt, api_key=api_key)
-    obj_match = re.search(r'\{.*\}', raw, re.DOTALL)
-    if not obj_match:
-        raise ValueError(f'Unexpected Gemini response: {raw[:200]}')
-
-    result = json.loads(obj_match.group(0))
+    result = json.loads(_extract_json(raw, kind='object'))
     result['description_used'] = has_desc
     result.setdefault('title', title)
     result.setdefault('company', company)
@@ -283,11 +336,7 @@ Reply ONLY with a JSON array — one object per job, same order, no extra text:
 Scoring: Strong 80+, Good 65-79, Moderate 40-64, Weak <40. Be honest and specific."""
 
     raw = _call_gemini(prompt, api_key=api_key)
-    arr_match = re.search(r'\[.*\]', raw, re.DOTALL)
-    if not arr_match:
-        raise ValueError(f'Unexpected Gemini response: {raw[:300]}')
-
-    results = json.loads(arr_match.group(0))
+    results = json.loads(_extract_json(raw, kind='array'))
 
     # Merge url + description_used back in and sort by score desc
     for i, r in enumerate(results):
