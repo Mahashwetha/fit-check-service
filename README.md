@@ -23,6 +23,19 @@ You can also run a **batch compare** — score up to 10 job URLs at once and ran
 - Daily free checks per IP with graceful quota prompt
 - `/stats` endpoint showing server-wide daily usage
 
+## Free Tier & API Key
+
+Each IP gets **20 free checks per day** using the server's shared Gemini key. Once the limit is hit, the UI prompts you to paste your own free Gemini API key — no account needed beyond that. You can get one in ~30 seconds at [aistudio.google.com/apikey](https://aistudio.google.com/apikey). The key is saved to localStorage and sent with each request; it never touches the server's storage.
+
+If the server already has a key configured, the key input field is hidden entirely.
+
+## Error Handling
+
+| Error | Cause | What happens |
+|---|---|---|
+| `429 Too Many Requests` | Gemini quota exhausted (server key or your own key) | UI shows a clear message with a link to get a new key |
+| `503 Service Unavailable` | Render cold start or Gemini API down | UI shows a retry prompt; usually resolves in a few seconds |
+
 ## Stack
 
 - **Backend:** FastAPI + Python
