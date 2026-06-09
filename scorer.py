@@ -18,7 +18,7 @@ from dotenv import load_dotenv
 # Load .env for local dev (no-op in production where env vars are set directly)
 load_dotenv()
 
-GEMINI_MODEL = 'gemini-2.0-flash-001'
+GEMINI_MODEL = 'gemini-2.5-flash'
 GEMINI_URL = (
     f'https://generativelanguage.googleapis.com/v1beta/models/'
     f'{GEMINI_MODEL}:generateContent'
