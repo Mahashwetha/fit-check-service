@@ -1,6 +1,6 @@
 services:
   - type: web
-    name: rolescore
+    name: fit-check-service
     runtime: docker
     dockerfilePath: ./Dockerfile
     envVars:
