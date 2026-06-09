@@ -93,7 +93,7 @@ def _call_gemini(prompt: str, api_key: str = '') -> str:
         'contents': [{'parts': [{'text': prompt}]}],
         'generationConfig': {
             'temperature': 0.2,
-            'maxOutputTokens': 2048,
+            'maxOutputTokens': 8192,
         },
     }
     last_exc = None
