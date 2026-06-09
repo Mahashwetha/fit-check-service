@@ -25,7 +25,7 @@ app = FastAPI(title='Fit-Check Service', version='1.3')
 # ── Per-IP daily quota ────────────────────────────────────────────────────────
 # Structure: { ip: {"count": int, "date": date} }
 _quota: dict = defaultdict(lambda: {"count": 0, "date": date.today()})
-DAILY_FREE_LIMIT = 50
+DAILY_FREE_LIMIT = 20
 
 # ── Global server-wide daily counter ─────────────────────────────────────────
 _global = {"count": 0, "date": date.today(), "alert_sent": False}
@@ -365,7 +365,7 @@ async function loadStats() {
 function showQuotaPrompt(outEl, retryFn) {
   outEl.innerHTML = `
     <div class="quota-box">
-      <strong>🚦 You've used your 50 free checks today</strong>
+      <strong>🚦 You've used your 20 free checks today</strong>
       You can continue with your own free Gemini API key — resets tomorrow otherwise.<br>
       Get one in 30 seconds at <a href="https://aistudio.google.com/apikey" target="_blank">aistudio.google.com/apikey</a>
       <div class="quota-key-row">
