@@ -174,7 +174,7 @@ HTML = """<!DOCTYPE html>
     display: inline-block; padding: 2px 8px; border-radius: 12px;
     font-size: 11px; font-weight: 700; white-space: nowrap;
   }
-  .gaps-text { font-size: 11px; color: #718096; }
+  .gaps-text { font-size: 11px; color: #2b4c8c; font-weight: 500; }
   .rec-text { font-size: 11px; color: #2d3748; font-style: italic; }
   .desc-chip {
     display: inline-block; padding: 1px 6px; border-radius: 8px; font-size: 10px;
