@@ -459,10 +459,20 @@ function renderSingle(data) {
     renderSkillRow('❌', '#fff5f5', '#9b2c2c', m.skill, m.required)
   ).join('');
 
-  const skillSection = (matchedRows || partialRows || missingRows) ? `
+  const extraRows = (data.extra || []).map(m =>
+    renderSkillRow('➕', '#f7fafc', '#4a5568', m.skill, m.evidence || m.note || '')
+  ).join('');
+
+  const extraSection = extraRows ? `
+    <div style="margin-top:10px;font-size:11px;font-weight:600;color:#a0aec0;text-transform:uppercase;letter-spacing:0.5px;">On your resume — not requested in this job</div>
+    ${extraRows}` : '';
+
+  const skillSection = (matchedRows || partialRows || missingRows || extraRows) ? `
     <div class="section">
       <div class="section-title">Skill Breakdown</div>
       ${matchedRows}${partialRows}${missingRows}
+      ${extraSection}
+      <div style="font-size:11px;color:#a0aec0;margin-top:8px;">Score weighs overall fit — seniority, domain, location — not just the count of exact skill matches.</div>
     </div>` : '';
 
   return `
