@@ -472,7 +472,6 @@ function renderSingle(data) {
       <div class="section-title">Skill Breakdown</div>
       ${matchedRows}${partialRows}${missingRows}
       ${extraSection}
-      <div style="font-size:11px;color:#a0aec0;margin-top:8px;">Score weighs overall fit — seniority, domain, location — not just the count of exact skill matches.</div>
     </div>` : '';
 
   return `
@@ -487,6 +486,7 @@ function renderSingle(data) {
         <div class="score-bar-wrap" style="margin-top:8px">
           <div class="score-bar" style="width:${data.score}%;background:${col.bar}"></div>
         </div>
+        <div style="font-size:11px;color:${col.bg};margin-top:6px;">Score weighs overall fit — seniority, domain, location — not just the count of exact skill matches.</div>
       </div>
     </div>
     ${skillSection}
