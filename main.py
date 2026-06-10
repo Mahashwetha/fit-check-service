@@ -362,11 +362,19 @@ async function loadStats() {
 }
 
 // ── Quota limit UI ──
-function showQuotaPrompt(outEl, retryFn) {
+// kind: 'personal' = this IP used its daily free checks
+//       'server'   = the server's shared Gemini key is rate-limited by Google
+function showQuotaPrompt(outEl, retryFn, kind) {
+  const heading = kind === 'server'
+    ? "🚦 The server's Gemini key is rate-limited"
+    : "🚦 You've used your 20 free checks today";
+  const body = kind === 'server'
+    ? 'Too many requests right now — wait a minute and retry, or continue immediately with your own free Gemini API key.<br>'
+    : 'You can continue with your own free Gemini API key — resets tomorrow otherwise.<br>';
   outEl.innerHTML = `
     <div class="quota-box">
-      <strong>🚦 You've used your 20 free checks today</strong>
-      You can continue with your own free Gemini API key — resets tomorrow otherwise.<br>
+      <strong>${heading}</strong>
+      ${body}
       Get one in 30 seconds at <a href="https://aistudio.google.com/apikey" target="_blank">aistudio.google.com/apikey</a>
       <div class="quota-key-row">
         <input type="password" id="quota-key-input" placeholder="Paste your key here (AIzaSy...)">
@@ -536,7 +544,7 @@ async function submitSingle(overrideKey) {
     const data = await resp.json();
     if (!resp.ok) {
       if (data.detail === 'daily_limit_reached' || (data.detail||'').toLowerCase().includes('rate limit')) {
-        showQuotaPrompt(out, k => submitSingle(k));
+        showQuotaPrompt(out, k => submitSingle(k), data.detail === 'daily_limit_reached' ? 'personal' : 'server');
         return;
       }
       throw new Error(data.detail || JSON.stringify(data));
@@ -575,7 +583,7 @@ async function submitMulti(overrideKey) {
     const data = await resp.json();
     if (!resp.ok) {
       if (data.detail === 'daily_limit_reached' || (data.detail||'').toLowerCase().includes('rate limit')) {
-        showQuotaPrompt(out, k => submitMulti(k));
+        showQuotaPrompt(out, k => submitMulti(k), data.detail === 'daily_limit_reached' ? 'personal' : 'server');
         return;
       }
       throw new Error(data.detail || JSON.stringify(data));
