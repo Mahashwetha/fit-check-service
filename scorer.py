@@ -304,6 +304,18 @@ Rules:
     result.setdefault('matched', [])
     result.setdefault('missing', [])
     result.setdefault('partial', [])
+    # flash-lite ignores the "only JD skills" rule sometimes and lists resume
+    # skills the job never asks for — drop entries whose skill term doesn't
+    # appear anywhere in the actual job description
+    if has_desc:
+        desc_lower = description.lower()
+
+        def _in_jd(item: dict) -> bool:
+            tokens = [t for t in re.split(r'[^a-z0-9+#.]+', item.get('skill', '').lower()) if len(t) > 2]
+            return any(re.search(rf'\b{re.escape(t)}\b', desc_lower) for t in tokens)
+
+        result['matched'] = [m for m in result['matched'] if _in_jd(m)]
+        result['partial'] = [m for m in result['partial'] if _in_jd(m)]
     result['url'] = url
     return result
 
