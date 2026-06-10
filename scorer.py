@@ -270,6 +270,8 @@ Reply ONLY in this exact JSON format (no markdown, no extra text):
 {{
   "score": <0-100>,
   "verdict": "<Weak|Moderate|Good|Strong>",
+  "title": "<actual job title from the description; keep the given title if no description>",
+  "company": "<company name from the description, or the given company>",
   "matched": [
     {{"skill": "<skill name>", "evidence": "<where it appears on resume, max 8 words>"}},
     ...
@@ -286,17 +288,19 @@ Reply ONLY in this exact JSON format (no markdown, no extra text):
 }}
 
 Rules:
-- matched: skills/experience clearly present on resume (3-6 items)
+- matched: skills the JOB explicitly requires or prefers AND that are clearly present on the resume (0-6 items). Do NOT list resume skills the job never asks for.
 - missing: skills explicitly required or preferred in JD but absent from resume (2-5 items)
-- partial: skills where candidate has something related but not exact match (0-3 items)
+- partial: skills where the JD asks for X and the candidate has something related but not X (0-3 items). e.g. JD wants Ruby, candidate has Java → partial or missing, never matched.
 - Scoring: Strong 80+, Good 65-79, Moderate 40-64, Weak <40
 - Be specific — use actual skill names, not vague terms like "experience" """
 
     raw = _call_gemini(prompt, api_key=api_key)
     result = json.loads(_extract_json(raw, kind='object'))
     result['description_used'] = has_desc
-    result.setdefault('title', title)
-    result.setdefault('company', company)
+    if not result.get('title'):
+        result['title'] = title
+    if not result.get('company'):
+        result['company'] = company
     result.setdefault('matched', [])
     result.setdefault('missing', [])
     result.setdefault('partial', [])
