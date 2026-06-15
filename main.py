@@ -467,15 +467,26 @@ function renderSingle(data) {
     <div style="margin-top:10px;font-size:11px;font-weight:600;color:#a0aec0;text-transform:uppercase;letter-spacing:0.5px;">On your resume — not requested in this job</div>
     ${extraRows}` : '';
 
-  const skillSection = (matchedRows || partialRows || missingRows || extraRows) ? `
+  const noDescBanner = !data.description_used ? `
+    <div style="background:#fffbeb;border:1px solid #f6ad55;border-radius:8px;padding:10px 14px;margin-bottom:14px;font-size:12px;color:#975a16;">
+      ⚠️ <strong>Job description unavailable</strong> — couldn't fetch the posting (site may block scrapers or require login).
+      The score and skill breakdown below are based on the job <em>title only</em> and are <strong>unreliable</strong>. Open the job directly to verify.
+    </div>` : '';
+
+  const skillSection = (matchedRows || partialRows || missingRows || extraRows) && data.description_used ? `
     <div class="section">
       <div class="section-title">Skill Breakdown</div>
       ${matchedRows}${partialRows}${missingRows}
       ${extraSection}
+    </div>` : (matchedRows || partialRows || missingRows) && !data.description_used ? `
+    <div class="section" style="opacity:0.4;pointer-events:none;">
+      <div class="section-title">Skill Breakdown <span style="font-weight:400;font-size:11px;">(unreliable — no description)</span></div>
+      ${matchedRows}${partialRows}${missingRows}
     </div>` : '';
 
   return `
     <hr class="divider">
+    ${noDescBanner}
     <div class="score-row">
       <div class="score-circle" style="background:${col.bg}">${data.score}</div>
       <div style="flex:1">
@@ -491,9 +502,7 @@ function renderSingle(data) {
     </div>
     ${skillSection}
     <div class="rec">${data.recommendation}</div>
-    <p class="desc-note">${data.description_used
-      ? '✓ Full description fetched.'
-      : '⚠ Description unavailable — title-based estimate.'}</p>`;
+    <p class="desc-note">${data.description_used ? '✓ Full description fetched.' : ''}</p>`;
 }
 
 // ── Batch result renderer ──
