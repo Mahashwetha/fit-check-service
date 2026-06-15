@@ -4,6 +4,14 @@ A lightweight web service that scores how well a job posting matches your resume
 
 Live at: https://fit-check-service.onrender.com/
 
+## Screenshots
+
+**Full description fetched — skill breakdown shown:**
+![Fit-Check good result](screenshots/fitcheck_good.png)
+
+**Description unavailable — amber warning, no skill rows:**
+![Fit-Check no description](screenshots/fitcheck_no_description.png)
+
 ## What it does
 
 Paste a job URL and upload your resume (PDF or DOCX). The service fetches the job description, extracts your skills, and uses an LLM to produce:
