@@ -478,10 +478,6 @@ function renderSingle(data) {
       <div class="section-title">Skill Breakdown</div>
       ${matchedRows}${partialRows}${missingRows}
       ${extraSection}
-    </div>` : (matchedRows || partialRows || missingRows) && !data.description_used ? `
-    <div class="section" style="opacity:0.4;pointer-events:none;">
-      <div class="section-title">Skill Breakdown <span style="font-weight:400;font-size:11px;">(unreliable — no description)</span></div>
-      ${matchedRows}${partialRows}${missingRows}
     </div>` : '';
 
   return `
