@@ -36,6 +36,17 @@ If the server already has a key configured, the key input field is hidden entire
 | `429 Too Many Requests` | Gemini quota exhausted (server key or your own key) | UI shows a clear message with a link to get a new key |
 | `503 Service Unavailable` | Render cold start or Gemini API down | UI shows a retry prompt; usually resolves in a few seconds |
 
+### ⚠️ Job Description Warnings
+
+| Warning | Cause | What happens |
+|---|---|---|
+| "Job description unavailable" (amber banner) | Site blocks scrapers, requires login, or is JS-rendered with no meta fallback | Score and skill breakdown are hidden — based on job title only and unreliable. Open the job directly to verify. |
+| "Description not used" chip | Fetched page had less than 100 chars of useful text | Same as above — title-only estimate |
+
+**Known affected sites:**
+- **LinkedIn** — guest API works for older job IDs but is increasingly blocked for recent postings. Inconsistent — try the URL, if the banner appears the description wasn't fetched.
+- **JS-rendered sites** (e.g. workatastartup.com) — scraper falls back to the page's meta description, which usually contains the full JD. Works in most cases.
+
 ## Stack
 
 - **Backend:** FastAPI + Python
