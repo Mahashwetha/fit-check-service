@@ -23,6 +23,14 @@ You can also run a **batch compare** — score up to 10 job URLs at once and ran
 - Daily free checks per IP with graceful quota prompt
 - `/stats` endpoint showing server-wide daily usage
 
+## How Scoring Works
+
+The score (0–100) is a holistic judgment by the LLM — it weighs seniority match, domain overlap, location, and skill alignment together, not just a count of exact keyword matches. Two green ticks on a 75% score means the other 25 points came from overall profile fit (experience level, industry, etc.).
+
+Skill rows are only shown when the full job description was successfully fetched. If the description is unavailable, the skill breakdown is hidden — title-only scores are unreliable and treated as such.
+
+The `extra` section ("On your resume — not requested in this job") shows skills the model initially matched but that don't appear in the actual job description — useful context, not a real match.
+
 ## Free Tier & API Key
 
 Each IP gets **20 free checks per day** using the server's shared Gemini key. Once the limit is hit, the UI prompts you to paste your own free Gemini API key — no account needed beyond that. You can get one in ~30 seconds at [aistudio.google.com/apikey](https://aistudio.google.com/apikey). The key is saved to localStorage and sent with each request; it never touches the server's storage.
@@ -46,6 +54,14 @@ If the server already has a key configured, the key input field is hidden entire
 **Known affected sites:**
 - **LinkedIn** — guest API works for older job IDs but is increasingly blocked for recent postings. Inconsistent — try the URL, if the banner appears the description wasn't fetched.
 - **JS-rendered sites** (e.g. workatastartup.com) — scraper falls back to the page's meta description, which usually contains the full JD. Works in most cases.
+
+## Privacy
+
+Resume text is parsed in memory and sent to Google's Gemini API for scoring. It is not stored on this server. However, it does transit Google's infrastructure — do not upload resumes containing sensitive personal data beyond what you'd normally share with a job application.
+
+## Performance & Availability
+
+Hosted on Render's free tier — the instance sleeps after ~15 minutes of inactivity. The first request after a sleep triggers a cold start (~30–60 seconds). Subsequent requests are fast. The `/health` endpoint can be used to wake the instance before a batch run.
 
 ## Stack
 
