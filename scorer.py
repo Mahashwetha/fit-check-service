@@ -314,7 +314,9 @@ Rules:
 
         def _in_jd(item: dict) -> bool:
             tokens = [t for t in re.split(r'[^a-z0-9+#.]+', item.get('skill', '').lower()) if len(t) > 2]
-            return any(re.search(rf'\b{re.escape(t)}\b', desc_lower) for t in tokens)
+            if not tokens:
+                return True  # no meaningful tokens to check, don't filter
+            return all(re.search(rf'\b{re.escape(t)}\b', desc_lower) for t in tokens)
 
         result['extra'] = ([m for m in result['matched'] if not _in_jd(m)]
                            + [m for m in result['partial'] if not _in_jd(m)])
