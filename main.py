@@ -117,6 +117,7 @@ HTML = """<!DOCTYPE html>
     border-radius: 8px; font-size: 13px; outline: none; transition: border-color .15s;
     font-family: inherit;
   }
+  input::placeholder, textarea::placeholder { color: #c4cdd8; }
   input[type="url"]:focus, input[type="text"]:focus, textarea:focus { border-color: #667eea; }
   textarea { resize: vertical; min-height: 100px; }
   .file-drop {
@@ -264,11 +265,11 @@ HTML = """<!DOCTYPE html>
       <div class="row">
         <div class="field">
           <label>Job Title <span style="font-weight:400;color:#a0aec0">(optional)</span></label>
-          <input type="text" id="s-title" placeholder="Senior Backend Engineer">
+          <input type="text" id="s-title" placeholder="e.g. Software Engineer">
         </div>
         <div class="field">
           <label>Company <span style="font-weight:400;color:#a0aec0">(optional)</span></label>
-          <input type="text" id="s-company" placeholder="Acme Corp">
+          <input type="text" id="s-company" placeholder="e.g. Company name">
         </div>
       </div>
       <button type="submit" id="s-btn">Analyse Fit</button>
