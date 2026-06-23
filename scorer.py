@@ -204,8 +204,9 @@ def _fetch_generic(url: str) -> str:
         if resp.status_code != 200:
             return ''
         soup = BeautifulSoup(resp.text, 'html.parser')
-        ld = soup.find('script', type='application/ld+json')
-        if ld and ld.string:
+        for ld in soup.find_all('script', type='application/ld+json'):
+            if not ld.string:
+                continue
             try:
                 data = json.loads(ld.string)
                 desc = data.get('description', '')
