@@ -270,15 +270,11 @@ def score_fit(url: str, resume_text: str, title: str = '', company: str = '', ap
     description, ld_title, ld_company = fetch_job_info(url)
     has_desc = bool(description and len(description) > 100)
 
-    # Prefer ld+json metadata over URL-slug guesses — avoids UUID garbage titles
+    # Prefer ld+json metadata; never fall back to URL slug (produces garbage for UUID-based ATS)
     if not title:
         title = ld_title or ''
     if not company:
         company = ld_company or ''
-    if not title:
-        slug = re.sub(r'[-_]', ' ', url.rstrip('/').split('/')[-1].split('?')[0])
-        slug = re.sub(r'[^a-zA-Z\s]', ' ', slug)
-        title = ' '.join(slug.split()).title() or 'Unknown Role'
     desc_section = f'\n\nJOB DESCRIPTION:\n{description[:3000]}' if has_desc else ''
 
     prompt = f"""You are a senior tech recruiter. Do a skill-by-skill fit analysis for this candidate.
