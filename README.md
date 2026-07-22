@@ -40,6 +40,8 @@ Skill rows are only shown when the full job description was successfully fetched
 
 The `extra` section ("On your resume — not requested in this job") shows skills the model initially matched but that don't appear in the actual job description — useful context, not a real match.
 
+Job title and company are extracted from the page's structured data (`ld+json`) when available — this covers most ATS platforms (Ashby, Jobicy, Greenhouse, etc.). If no structured data is found, Gemini infers the title from the job description text. Title is left blank rather than guessed from the URL, since UUID-based ATS links produce garbage (e.g. `59f3c28d...` → "F C D C A E Cef Ce").
+
 ## Free Tier & API Key
 
 Each IP gets **20 free checks per day** using the server's shared Gemini key. Once the limit is hit, the UI prompts you to paste your own free Gemini API key — no account needed beyond that. You can get one in ~30 seconds at [aistudio.google.com/apikey](https://aistudio.google.com/apikey). The key is saved to localStorage and sent with each request; it never touches the server's storage.
