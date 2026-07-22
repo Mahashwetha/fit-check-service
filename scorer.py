@@ -137,6 +137,19 @@ def fetch_job_description(url: str) -> str:
         return _fetch_linkedin(url)
     if 'welcometothejungle.com' in url_lower:
         return _fetch_wttj(url)
+    desc, _, _ = _fetch_generic(url)
+    return desc
+
+
+def fetch_job_info(url: str) -> tuple[str, str, str]:
+    """Returns (description, title, company) for a job URL.
+    title and company are populated from ld+json when available (e.g. Ashby, Jobicy).
+    """
+    url_lower = url.lower()
+    if 'linkedin.com/jobs/view/' in url_lower:
+        return _fetch_linkedin(url), '', ''
+    if 'welcometothejungle.com' in url_lower:
+        return _fetch_wttj(url), '', ''
     return _fetch_generic(url)
 
 
@@ -189,7 +202,8 @@ def _fetch_wttj(url: str) -> str:
     return _fetch_generic(url)
 
 
-def _fetch_generic(url: str) -> str:
+def _fetch_generic(url: str) -> tuple[str, str, str]:
+    """Returns (description, title, company). title/company are empty strings when not found."""
     try:
         # Some sites (e.g. workatastartup.com) return 406 without Accept headers
         headers = {
@@ -202,7 +216,7 @@ def _fetch_generic(url: str) -> str:
         }
         resp = requests.get(url, headers=headers, timeout=15)
         if resp.status_code != 200:
-            return ''
+            return '', '', ''
         soup = BeautifulSoup(resp.text, 'html.parser')
         for ld in soup.find_all('script', type='application/ld+json'):
             if not ld.string:
@@ -211,7 +225,11 @@ def _fetch_generic(url: str) -> str:
                 data = json.loads(ld.string)
                 desc = data.get('description', '')
                 if desc and len(desc) > 100:
-                    return BeautifulSoup(desc, 'html.parser').get_text(' ', strip=True)[:4000]
+                    text = BeautifulSoup(desc, 'html.parser').get_text(' ', strip=True)[:4000]
+                    ld_title = data.get('title', '') or data.get('name', '')
+                    org = data.get('hiringOrganization', {})
+                    ld_company = org.get('name', '') if isinstance(org, dict) else ''
+                    return text, ld_title, ld_company
             except Exception:
                 pass
         for tag in soup(['script', 'style', 'nav', 'footer', 'header']):
@@ -225,9 +243,9 @@ def _fetch_generic(url: str) -> str:
             content = meta.get('content', '') if meta else ''
             if len(content) > len(text):
                 text = content
-        return text[:4000]
+        return text[:4000], '', ''
     except Exception:
-        return ''
+        return '', '', ''
 
 
 # ── Scoring ───────────────────────────────────────────────────────────────────
@@ -249,13 +267,18 @@ def score_fit(url: str, resume_text: str, title: str = '', company: str = '', ap
         "url": str,
       }
     """
+    description, ld_title, ld_company = fetch_job_info(url)
+    has_desc = bool(description and len(description) > 100)
+
+    # Prefer ld+json metadata over URL-slug guesses — avoids UUID garbage titles
+    if not title:
+        title = ld_title or ''
+    if not company:
+        company = ld_company or ''
     if not title:
         slug = re.sub(r'[-_]', ' ', url.rstrip('/').split('/')[-1].split('?')[0])
         slug = re.sub(r'[^a-zA-Z\s]', ' ', slug)
         title = ' '.join(slug.split()).title() or 'Unknown Role'
-
-    description = fetch_job_description(url)
-    has_desc = bool(description and len(description) > 100)
     desc_section = f'\n\nJOB DESCRIPTION:\n{description[:3000]}' if has_desc else ''
 
     prompt = f"""You are a senior tech recruiter. Do a skill-by-skill fit analysis for this candidate.
