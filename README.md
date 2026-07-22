@@ -25,6 +25,7 @@ You can also run a **batch compare** — score up to 10 job URLs at once and ran
 ## Features
 
 - Single job fit score with skill breakdown
+- **Company & role context** — a 1-2 sentence company description and role summary extracted from the JD, shown below the score so you know what you're applying to at a glance
 - Batch scoring (up to 10 URLs) with ranking
 - PDF and DOCX resume support
 - Bring-your-own Gemini API key (optional, for power users)
