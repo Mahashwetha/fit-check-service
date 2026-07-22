@@ -285,7 +285,9 @@ Reply ONLY in this exact JSON format (no markdown, no extra text):
     {{"skill": "<skill name>", "note": "<what they have vs what's needed, max 10 words>"}},
     ...
   ],
-  "recommendation": "<one sentence: apply / apply with cover note / skip>"
+  "recommendation": "<one sentence: apply / apply with cover note / skip>",
+  "company_blurb": "<1-2 sentences about what the company does, drawn from the JD; empty string if not enough info>",
+  "role_blurb": "<1-2 sentences about what this specific role involves, drawn from the JD; empty string if no description>"
 }}
 
 Rules:
@@ -293,7 +295,8 @@ Rules:
 - missing: skills explicitly required or preferred in JD but absent from resume (2-5 items)
 - partial: skills where the JD asks for X and the candidate has something related but not X (0-3 items). e.g. JD wants Ruby, candidate has Java → partial or missing, never matched.
 - Scoring: Strong 80+, Good 65-79, Moderate 40-64, Weak <40
-- Be specific — use actual skill names, not vague terms like "experience" """
+- Be specific — use actual skill names, not vague terms like "experience"
+- company_blurb and role_blurb: factual, from the JD only, max 2 sentences each, empty string if not enough context """
 
     raw = _call_gemini(prompt, api_key=api_key)
     result = json.loads(_extract_json(raw, kind='object'))
@@ -305,6 +308,8 @@ Rules:
     result.setdefault('matched', [])
     result.setdefault('missing', [])
     result.setdefault('partial', [])
+    result.setdefault('company_blurb', '')
+    result.setdefault('role_blurb', '')
     # flash-lite ignores the "only JD skills" rule sometimes and lists resume
     # skills the job never asks for — demote entries whose skill term doesn't
     # appear anywhere in the actual job description into 'extra', so the UI can

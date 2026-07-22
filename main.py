@@ -491,6 +491,8 @@ function renderSingle(data) {
           ${data.title}${data.company ? ' @ ' + data.company : ''}
         </div>
         <span class="verdict-badge" style="${col.chip}">${data.verdict}</span>
+        ${data.company_blurb ? `<div style="font-size:12px;color:#718096;margin-top:6px;line-height:1.5">${data.company_blurb}</div>` : ''}
+        ${data.role_blurb ? `<div style="font-size:12px;color:#4a5568;margin-top:3px;line-height:1.5;font-style:italic">${data.role_blurb}</div>` : ''}
         <div class="score-bar-wrap" style="margin-top:8px">
           <div class="score-bar" style="width:${data.score}%;background:${col.bar}"></div>
         </div>
