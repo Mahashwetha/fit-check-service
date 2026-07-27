@@ -306,7 +306,8 @@ Reply ONLY in this exact JSON format (no markdown, no extra text):
   ],
   "recommendation": "<one sentence: apply / apply with cover note / skip>",
   "company_blurb": "<1-2 sentences about what the company does, drawn from the JD; empty string if not enough info>",
-  "role_blurb": "<1-2 sentences about what this specific role involves, drawn from the JD; empty string if no description>"
+  "role_blurb": "<1-2 sentences about what this specific role involves, drawn from the JD; empty string if no description>",
+  "language": "<specific language requirement from JD e.g. 'French required', 'English required', 'French + English required'; empty string if nothing specific mentioned>"
 }}
 
 Rules:
@@ -315,7 +316,8 @@ Rules:
 - partial: skills where the JD asks for X and the candidate has something related but not X (0-3 items). e.g. JD wants Ruby, candidate has Java → partial or missing, never matched.
 - Scoring: Strong 80+, Good 65-79, Moderate 40-64, Weak <40
 - Be specific — use actual skill names, not vague terms like "experience"
-- company_blurb and role_blurb: factual, from the JD only, max 2 sentences each, empty string if not enough context """
+- company_blurb and role_blurb: factual, from the JD only, max 2 sentences each, empty string if not enough context
+- language: only populate if the JD explicitly states a language requirement; empty string if nothing specific is mentioned """
 
     raw = _call_gemini(prompt, api_key=api_key)
     result = json.loads(_extract_json(raw, kind='object'))
@@ -329,6 +331,7 @@ Rules:
     result.setdefault('partial', [])
     result.setdefault('company_blurb', '')
     result.setdefault('role_blurb', '')
+    result.setdefault('language', '')
     # flash-lite ignores the "only JD skills" rule sometimes and lists resume
     # skills the job never asks for — demote entries whose skill term doesn't
     # appear anywhere in the actual job description into 'extra', so the UI can

@@ -500,6 +500,10 @@ function renderSingle(data) {
       </div>
     </div>
     ${skillSection}
+    ${data.description_used ? `<div class="section">
+      <div class="section-title">🌐 Language</div>
+      <div class="section-body" style="font-size:12px;color:#4a5568">${data.language || 'Nothing specific mentioned — check role description'}</div>
+    </div>` : ''}
     <div class="rec">${data.recommendation}</div>
     <p class="desc-note">${data.description_used ? '✓ Full description fetched.' : ''}</p>`;
 }
