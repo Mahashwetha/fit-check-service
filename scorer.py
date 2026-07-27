@@ -106,13 +106,13 @@ def _call_gemini(prompt: str, api_key: str = '') -> str:
                 json=payload,
                 timeout=30,
             )
-            if resp.status_code in (429, 500, 503) and attempt < 2:
-                time.sleep(5 * (attempt + 1))  # 5s, 10s
+            if resp.status_code in (500, 503) and attempt < 2:
+                time.sleep(5 * (attempt + 1))  # 5s, 10s — retry only on server errors
                 continue
+            if resp.status_code in (429, 503):
+                raise RuntimeError('Gemini rate limit reached. Add your own Gemini API key to continue.')
             if resp.status_code == 503:
                 raise RuntimeError('Gemini is temporarily overloaded — please try again in a few seconds.')
-            if resp.status_code == 429:
-                raise RuntimeError('Gemini rate limit reached. Add your own Gemini API key to continue.')
             if resp.status_code == 401:
                 raise RuntimeError('Invalid Gemini API key. Please check your key and try again.')
             resp.raise_for_status()
