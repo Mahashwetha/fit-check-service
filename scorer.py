@@ -149,7 +149,10 @@ def fetch_job_info(url: str) -> tuple[str, str, str]:
     if 'linkedin.com/jobs/view/' in url_lower:
         return _fetch_linkedin(url), '', ''
     if 'welcometothejungle.com' in url_lower:
-        return _fetch_wttj(url), '', ''
+        m = re.search(r'/companies/([^/]+)/jobs/([^?&#]+)', url)
+        wttj_company = m.group(1).replace('-', ' ').title() if m else ''
+        wttj_title = re.sub(r'_[a-z]+$', '', m.group(2)).replace('-', ' ').title() if m else ''
+        return _fetch_wttj(url), wttj_title, wttj_company
     return _fetch_generic(url)
 
 
