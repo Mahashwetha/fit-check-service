@@ -287,7 +287,7 @@ CANDIDATE RESUME:
 
 JOB:
 Title: {title}
-Company: {company or "unknown"}{desc_section}
+Company: {company}{desc_section}
 
 Reply ONLY in this exact JSON format (no markdown, no extra text):
 {{
@@ -327,8 +327,10 @@ Rules:
     result['description_used'] = has_desc
     if not result.get('title'):
         result['title'] = title
-    if not result.get('company'):
+    if not result.get('company') or result.get('company', '').strip().lower() == 'unknown':
         result['company'] = company
+    if result.get('company', '').strip().lower() == 'unknown':
+        result['company'] = ''
     result.setdefault('matched', [])
     result.setdefault('missing', [])
     result.setdefault('partial', [])
