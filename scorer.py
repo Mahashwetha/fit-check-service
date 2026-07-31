@@ -205,8 +205,17 @@ def _fetch_wttj(url: str) -> str:
     return _fetch_generic(url)
 
 
+_JOB_BOARD_NAMES = {
+    'built in', 'builtin', 'linkedin', 'indeed', 'glassdoor', 'we work remotely',
+    'weworkremotely', 'workable', 'greenhouse', 'lever', 'ashby', 'jobicy',
+    'himalayas', 'remoteok', 'remotive', 'wellfound', 'angellist', 'startup jobs',
+    'dice', 'ziprecruiter', 'monster', 'careerbuilder', 'simplyhired',
+}
+
+
 def _parse_page_title_meta(soup) -> tuple[str, str]:
-    """Extract (role_title, company) from og:title or <title> using 'Role at Company | Site' pattern."""
+    """Extract (role_title, company) from og:title or <title> using 'Role at Company | Site' pattern.
+    Returns ('', '') if extracted company looks like a job board name."""
     og = soup.find('meta', attrs={'property': 'og:title'})
     page_title_str = og.get('content', '') if og else ''
     if not page_title_str:
@@ -214,7 +223,10 @@ def _parse_page_title_meta(soup) -> tuple[str, str]:
         page_title_str = t.get_text() if t else ''
     m = re.match(r'^(.+?)\s+at\s+(.+?)(?:\s*[|\-–]|$)', page_title_str)
     if m:
-        return m.group(1).strip(), m.group(2).strip()
+        role = m.group(1).strip()
+        company = m.group(2).strip()
+        if company.lower() not in _JOB_BOARD_NAMES:
+            return role, company
     return '', ''
 
 
