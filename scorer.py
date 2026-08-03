@@ -205,31 +205,6 @@ def _fetch_wttj(url: str) -> str:
     return _fetch_generic(url)
 
 
-_JOB_BOARD_NAMES = {
-    'built in', 'builtin', 'linkedin', 'indeed', 'glassdoor', 'we work remotely',
-    'weworkremotely', 'workable', 'greenhouse', 'lever', 'ashby', 'jobicy',
-    'himalayas', 'remoteok', 'remotive', 'wellfound', 'angellist', 'startup jobs',
-    'dice', 'ziprecruiter', 'monster', 'careerbuilder', 'simplyhired',
-}
-
-
-def _parse_page_title_meta(soup) -> tuple[str, str]:
-    """Extract (role_title, company) from og:title or <title> using 'Role at Company | Site' pattern.
-    Returns ('', '') if extracted company looks like a job board name."""
-    og = soup.find('meta', attrs={'property': 'og:title'})
-    page_title_str = og.get('content', '') if og else ''
-    if not page_title_str:
-        t = soup.find('title')
-        page_title_str = t.get_text() if t else ''
-    m = re.match(r'^(.+?)\s+at\s+(.+?)(?:\s*[|\-–]|$)', page_title_str)
-    if m:
-        role = m.group(1).strip()
-        company = m.group(2).strip()
-        if company.lower() not in _JOB_BOARD_NAMES:
-            return role, company
-    return '', ''
-
-
 def _fetch_generic(url: str) -> tuple[str, str, str]:
     """Returns (description, title, company). title/company are empty strings when not found."""
     try:
@@ -246,7 +221,6 @@ def _fetch_generic(url: str) -> tuple[str, str, str]:
         if resp.status_code != 200:
             return '', '', ''
         soup = BeautifulSoup(resp.text, 'html.parser')
-        ld_desc, ld_title, ld_company = '', '', ''
         for ld in soup.find_all('script', type='application/ld+json'):
             if not ld.string:
                 continue
@@ -254,22 +228,13 @@ def _fetch_generic(url: str) -> tuple[str, str, str]:
                 data = json.loads(ld.string)
                 desc = data.get('description', '')
                 if desc and len(desc) > 100:
-                    ld_desc = BeautifulSoup(desc, 'html.parser').get_text(' ', strip=True)[:4000]
+                    text = BeautifulSoup(desc, 'html.parser').get_text(' ', strip=True)[:4000]
                     ld_title = data.get('title', '') or data.get('name', '')
                     org = data.get('hiringOrganization', {})
                     ld_company = org.get('name', '') if isinstance(org, dict) else ''
-                    break
+                    return text, ld_title, ld_company
             except Exception:
                 pass
-        # Fill missing title/company from og:title / <title> ("Role at Company | Site")
-        if not ld_title or not ld_company:
-            meta_title, meta_company = _parse_page_title_meta(soup)
-            if not ld_title:
-                ld_title = meta_title
-            if not ld_company:
-                ld_company = meta_company
-        if ld_desc:
-            return ld_desc, ld_title, ld_company
         for tag in soup(['script', 'style', 'nav', 'footer', 'header']):
             tag.decompose()
         text = soup.get_text(' ', strip=True)
@@ -281,7 +246,7 @@ def _fetch_generic(url: str) -> tuple[str, str, str]:
             content = meta.get('content', '') if meta else ''
             if len(content) > len(text):
                 text = content
-        return text[:4000], ld_title, ld_company
+        return text[:4000], '', ''
     except Exception:
         return '', '', ''
 
@@ -322,7 +287,7 @@ CANDIDATE RESUME:
 
 JOB:
 Title: {title}
-Company: {company}{desc_section}
+Company: {company or "unknown"}{desc_section}
 
 Reply ONLY in this exact JSON format (no markdown, no extra text):
 {{
@@ -362,10 +327,8 @@ Rules:
     result['description_used'] = has_desc
     if not result.get('title'):
         result['title'] = title
-    if not result.get('company') or result.get('company', '').strip().lower() == 'unknown':
+    if not result.get('company'):
         result['company'] = company
-    if result.get('company', '').strip().lower() == 'unknown':
-        result['company'] = ''
     result.setdefault('matched', [])
     result.setdefault('missing', [])
     result.setdefault('partial', [])
