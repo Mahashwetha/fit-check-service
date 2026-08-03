@@ -19,6 +19,7 @@ Paste a job URL and upload your resume (PDF or DOCX). The service fetches the jo
 - An overall fit score (0–100)
 - A per-skill breakdown: ✅ matched / ⚠️ partial / ❌ missing
 - A short summary of strengths and gaps
+- 📝 A tailored cover letter on demand — for jobs scoring 65+, one click drafts a cover letter matched to the role and copied to your clipboard
 
 You can also run a **batch compare** — score up to 10 job URLs at once and rank them side by side.
 
