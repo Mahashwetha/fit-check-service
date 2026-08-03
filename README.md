@@ -26,6 +26,7 @@ You can also run a **batch compare** — score up to 10 job URLs at once and ran
 
 - Single job fit score with skill breakdown
 - **Company & role context** — a 1-2 sentence company description and role summary extracted from the JD, shown below the score so you know what you're applying to at a glance
+- **Cover letter generator** — for jobs scoring 65+ (Good or Strong), a "Generate Cover Letter" button appears in the result card. One click calls a separate `/cover-letter` endpoint, generates a tailored letter via Gemini (fixed personal-projects/close template + AI-written matched-skills and gap paragraphs), and displays it inline with a one-click copy button
 - Batch scoring (up to 10 URLs) with ranking
 - PDF and DOCX resume support
 - Bring-your-own Gemini API key (optional, for power users)
@@ -88,6 +89,7 @@ Hosted on Render's free tier — the instance sleeps after ~15 minutes of inacti
 | `GET` | `/` | Web UI |
 | `POST` | `/fit-check` | Score a single job URL |
 | `POST` | `/fit-check/batch` | Score up to 10 job URLs |
+| `POST` | `/cover-letter` | Generate a tailored cover letter (on-demand, for 65+ scores) |
 | `GET` | `/config` | Returns `{key_configured: bool}` |
 | `GET` | `/stats` | Server-wide daily request count |
 | `GET` | `/health` | Health check |
