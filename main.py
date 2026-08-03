@@ -546,6 +546,21 @@ async function generateCoverLetter(btn) {
     outputEl.textContent = data.text;
     outputEl.style.display = 'block';
     btn.style.display = 'none';
+    // insert copy button after output
+    const existing = outputEl.nextElementSibling;
+    if (!existing || !existing.classList.contains('cl-copy-btn')) {
+      const copyBtn = document.createElement('button');
+      copyBtn.className = 'cl-copy-btn';
+      copyBtn.style = 'margin-top:8px;padding:6px 14px;background:#667eea;color:#fff;border:none;border-radius:6px;font-size:12px;font-weight:600;cursor:pointer;';
+      copyBtn.textContent = '📋 Copy';
+      copyBtn.onclick = () => {
+        navigator.clipboard.writeText(outputEl.textContent).then(() => {
+          copyBtn.textContent = '✅ Copied!';
+          setTimeout(() => { copyBtn.textContent = '📋 Copy'; }, 2000);
+        });
+      };
+      outputEl.insertAdjacentElement('afterend', copyBtn);
+    }
   } catch (err) {
     outputEl.innerHTML = `<span style="color:#c53030;">❌ ${err.message}</span>`;
     outputEl.style.display = 'block';
