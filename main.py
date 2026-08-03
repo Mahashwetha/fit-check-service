@@ -17,6 +17,7 @@ from fastapi.responses import HTMLResponse, JSONResponse
 from pydantic import BaseModel
 from typing import List
 
+from cover_letter_gen import generate_cover_letter
 from resume_parser import parse_resume
 from scorer import score_fit, score_fit_batch_urls
 
@@ -505,7 +506,53 @@ function renderSingle(data) {
       <div class="section-body" style="font-size:12px;color:#4a5568">${data.language || 'Nothing specific mentioned — check role description'}</div>
     </div>` : ''}
     <div class="rec">${data.recommendation}</div>
-    <p class="desc-note">${data.description_used ? '✓ Full description fetched.' : ''}</p>`;
+    <p class="desc-note">${data.description_used ? '✓ Full description fetched.' : ''}</p>
+    ${data.score >= 65 ? renderCoverLetterSection(data) : ''}`;
+}
+
+// ── Cover letter section ──
+function renderCoverLetterSection(data) {
+  const payload = encodeURIComponent(JSON.stringify({ url: data.url, title: data.title, company: data.company }));
+  return `
+    <div class="section" style="margin-top:16px;">
+      <button type="button" class="cl-btn" data-payload="${payload}" onclick="generateCoverLetter(this)"
+        style="width:100%;padding:10px;background:#edf2f7;color:#2d3748;border:1px solid #e2e8f0;border-radius:8px;font-size:13px;font-weight:600;cursor:pointer;">
+        ✉️ Generate Cover Letter
+      </button>
+      <div class="cl-output" style="display:none;margin-top:10px;padding:14px;background:#f7f8ff;border-radius:8px;font-size:12px;line-height:1.7;color:#2d3748;white-space:pre-wrap;"></div>
+    </div>`;
+}
+
+async function generateCoverLetter(btn) {
+  const { url, title, company } = JSON.parse(decodeURIComponent(btn.dataset.payload));
+  const outputEl = btn.nextElementSibling;
+  if (!getResumeFile()) { alert('Please upload your resume first.'); return; }
+
+  btn.disabled = true;
+  const originalText = btn.innerHTML;
+  btn.innerHTML = '<span class="spinner" style="border-color:rgba(0,0,0,.2);border-top-color:#2d3748;"></span>Generating…';
+
+  const fd = new FormData();
+  fd.append('url', url || '');
+  fd.append('title', title || '');
+  fd.append('company', company || '');
+  fd.append('api_key', getApiKey());
+  fd.append('resume', getResumeFile());
+
+  try {
+    const resp = await fetch('/cover-letter', { method: 'POST', body: fd });
+    const data = await resp.json();
+    if (!resp.ok) throw new Error(data.detail || JSON.stringify(data));
+    outputEl.textContent = data.text;
+    outputEl.style.display = 'block';
+    btn.style.display = 'none';
+  } catch (err) {
+    outputEl.innerHTML = `<span style="color:#c53030;">❌ ${err.message}</span>`;
+    outputEl.style.display = 'block';
+  } finally {
+    btn.disabled = false;
+    btn.innerHTML = originalText;
+  }
 }
 
 // ── Batch result renderer ──
@@ -662,6 +709,34 @@ async def fit_check_upload(
     if not api_key:
         _increment_quota(ip)
     return JSONResponse(content=result)
+
+
+# ── Cover letter endpoint (on-demand, separate from scoring) ─────────────────
+
+@app.post('/cover-letter')
+async def cover_letter(
+    url: str = Form(...),
+    title: str = Form(''),
+    company: str = Form(''),
+    api_key: str = Form(''),
+    resume: UploadFile = File(...),
+):
+    file_bytes = await resume.read()
+    if not file_bytes:
+        raise HTTPException(status_code=400, detail='Resume file is empty.')
+    try:
+        resume_text = parse_resume(file_bytes, resume.filename or 'resume.pdf')
+    except (ValueError, RuntimeError) as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    if len(resume_text.strip()) < 50:
+        raise HTTPException(status_code=400, detail='Could not extract text from resume. Try a different file.')
+    try:
+        text = generate_cover_letter(url, title, company, resume_text, api_key=api_key)
+    except RuntimeError as e:
+        raise HTTPException(status_code=503, detail=str(e))
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f'Cover letter generation failed: {e}')
+    return JSONResponse(content={'text': text})
 
 
 # ── Batch endpoint ────────────────────────────────────────────────────────────
