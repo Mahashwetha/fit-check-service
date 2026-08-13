@@ -22,7 +22,7 @@ CLOSE_PARA_TEMPLATE = (
     "Currently based in Paris, I am open to remote, hybrid, or on-site roles and am "
     "particularly motivated by opportunities where I can own services end-to-end and "
     "collaborate closely with cross-functional teams. I communicate professionally in "
-    "English and am currently learning French. I would welcome the chance to "
+    "English and am actively progressing in French. I would welcome the chance to "
     "discuss how my background aligns with {company}'s engineering goals."
 )
 
