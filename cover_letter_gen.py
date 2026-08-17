@@ -15,7 +15,9 @@ PERSONAL_PROJECTS_PARA = (
     "an automated job-tracking pipeline (Python, Excel, SMTP, Gemini API, Claude API), "
     "and Fit-Check — a live AI-powered job fit scorer deployed on Render "
     "(FastAPI, Gemini 2.5 Flash, Docker) that parses any job URL against a resume and "
-    "returns a skill-by-skill breakdown."
+    "returns a skill-by-skill breakdown. All of these are open sourced, usable by me "
+    "almost on daily basis for fast tracking many iterative activities and I learnt it all "
+    "by my self with help of claude and built from scratch."
 )
 
 CLOSE_PARA_TEMPLATE = (
