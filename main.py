@@ -246,8 +246,12 @@ HTML = """<!DOCTYPE html>
     <label>📄 Your Resume <span style="font-weight:400;color:#a0aec0">(PDF or DOCX — shared across both tabs)</span></label>
     <div class="file-drop" id="shared-drop" onclick="document.getElementById('shared-resume').click()">
       <input type="file" id="shared-resume" accept=".pdf,.docx">
-      <div>Click to upload or drag & drop</div>
+      <div id="shared-drop-text">Click to upload or drag & drop</div>
       <div class="file-name" id="shared-fname"></div>
+    </div>
+    <div id="resume-badge" style="display:none;margin-top:6px;padding:6px 10px;background:#c6f6d5;color:#276749;border-radius:6px;font-size:12px;font-weight:600;display:none;align-items:center;gap:8px;">
+      <span>📄</span><span id="resume-badge-name" style="flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;"></span>
+      <button type="button" onclick="clearResume()" style="background:none;border:none;color:#276749;cursor:pointer;font-size:14px;font-weight:700;padding:0;line-height:1;">✕</button>
     </div>
   </div>
 
@@ -415,14 +419,35 @@ function switchTab(name, el) {
   const drop = document.getElementById('shared-drop');
   const inp  = document.getElementById('shared-resume');
   const fn   = document.getElementById('shared-fname');
-  inp.addEventListener('change', () => { fn.textContent = inp.files[0]?.name || ''; });
+  function updateResumeBadge() {
+    const file = inp.files[0];
+    const badge = document.getElementById('resume-badge');
+    const badgeName = document.getElementById('resume-badge-name');
+    const dropText = document.getElementById('shared-drop-text');
+    if (file) {
+      fn.textContent = '';
+      badgeName.textContent = file.name;
+      badge.style.display = 'flex';
+      dropText.textContent = 'Click to replace resume';
+    } else {
+      badge.style.display = 'none';
+      dropText.textContent = 'Click to upload or drag & drop';
+    }
+  }
+  inp.addEventListener('change', updateResumeBadge);
   drop.addEventListener('dragover', e => { e.preventDefault(); drop.classList.add('over'); });
   drop.addEventListener('dragleave', () => drop.classList.remove('over'));
   drop.addEventListener('drop', e => {
     e.preventDefault(); drop.classList.remove('over');
-    if (e.dataTransfer.files[0]) { inp.files = e.dataTransfer.files; fn.textContent = e.dataTransfer.files[0].name; }
+    if (e.dataTransfer.files[0]) { inp.files = e.dataTransfer.files; updateResumeBadge(); }
   });
 })();
+
+function clearResume() {
+  const inp = document.getElementById('shared-resume');
+  inp.value = '';
+  inp.dispatchEvent(new Event('change'));
+}
 
 function getResumeFile() { return document.getElementById('shared-resume').files[0]; }
 
