@@ -390,6 +390,7 @@ Rules:
                            + [m for m in result['partial'] if not _in_jd(m)])
         result['matched'] = [m for m in result['matched'] if _in_jd(m)]
         result['partial'] = [m for m in result['partial'] if _in_jd(m)]
+        result['missing'] = [m for m in result['missing'] if _in_jd(m)]
     result['url'] = url
     return result
 
