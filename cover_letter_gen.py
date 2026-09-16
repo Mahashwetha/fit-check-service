@@ -44,11 +44,12 @@ Reply ONLY with a JSON object with these keys (no markdown, no extra text):
   "candidate_name": "<candidate's full name, extracted from the resume; 'the candidate' if not found>",
   "company_value_prop": "<what the company/platform does — plain noun phrase, max 12 words>",
   "role_hook": "<what this role builds/delivers — starts with an -ing verb, max 15 words>",
-  "matched_para": "<full paragraph (3-5 sentences) highlighting the candidate's existing skills/experience that directly match this JD — name specific tech/tools/experience from the resume that also appear in the JD; be concrete not vague>",
-  "gap_para": "<full paragraph (2-4 sentences) briefly bridging the most important gaps between the resume and the JD — be honest but positive; mention any genuine adjacent skills; don't list all gaps, pick the 1-2 most important>"
+  "matched_para": "<full paragraph (3-5 sentences) written in first person (I, my, me) highlighting the candidate's existing skills/experience that directly match this JD — name specific tech/tools/experience from the resume that also appear in the JD; be concrete not vague>",
+  "gap_para": "<full paragraph (2-4 sentences) written in first person (I, my, me) briefly bridging the most important gaps between the resume and the JD — be honest but positive; mention any genuine adjacent skills; don't list all gaps, pick the 1-2 most important>"
 }}
 
 Rules:
+- matched_para and gap_para MUST be written in first person (I, my, me) — never refer to the candidate by name or use 'she/her/he/his/they'
 - matched_para: only mention skills/experience explicitly present in the resume AND relevant to the JD
 - gap_para: don't fabricate experience; use phrases like 'exposure to', 'actively expanding', 'hands-on with adjacent X and motivated to deepen Y'
 - Keep paragraphs at roughly the same length as natural cover letter prose
