@@ -81,6 +81,8 @@ def _assemble(candidate_name: str, role: str, company: str, parts: dict) -> str:
         "",
         "Thank you for considering my application. I look forward to the possibility of speaking with you.",
         "",
+        "My GitHub profile: https://github.com/Mahashwetha | My LinkedIn profile: https://linkedin.com/in/mahashwetha-rao",
+        "",
         "Sincerely,",
         candidate_name,
     ]
