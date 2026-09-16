@@ -568,7 +568,9 @@ async function generateCoverLetter(btn) {
     const resp = await fetch('/cover-letter', { method: 'POST', body: fd });
     const data = await resp.json();
     if (!resp.ok) throw new Error(data.detail || JSON.stringify(data));
-    outputEl.textContent = data.text;
+    const rawText = data.text;
+    const escaped = rawText.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+    outputEl.innerHTML = escaped.replace(/(https?:\/\/[^\s]+)/g, '<a href="$1" target="_blank" rel="noopener" style="color:#667eea;">$1</a>');
     outputEl.style.display = 'block';
     btn.style.display = 'none';
     // insert copy button after output
@@ -579,7 +581,7 @@ async function generateCoverLetter(btn) {
       copyBtn.style = 'margin-top:8px;padding:6px 14px;background:#667eea;color:#fff;border:none;border-radius:6px;font-size:12px;font-weight:600;cursor:pointer;';
       copyBtn.textContent = '📋 Copy';
       copyBtn.onclick = () => {
-        navigator.clipboard.writeText(outputEl.textContent).then(() => {
+        navigator.clipboard.writeText(rawText).then(() => {
           copyBtn.textContent = '✅ Copied!';
           setTimeout(() => { copyBtn.textContent = '📋 Copy'; }, 2000);
         });
