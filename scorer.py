@@ -360,6 +360,10 @@ Rules:
     raw = _call_gemini(prompt, api_key=api_key)
     result = json.loads(_extract_json(raw, kind='object'))
     result['description_used'] = has_desc
+    if not has_desc:
+        # Without a JD, Gemini fills title/company from the resume (the candidate's own job)
+        result['title'] = title
+        result['company'] = company
     if not result.get('title'):
         result['title'] = title
     if not result.get('company') or result.get('company', '').strip().lower() == 'unknown':

@@ -93,6 +93,8 @@ def _assemble(candidate_name: str, role: str, company: str, parts: dict) -> str:
 def generate_cover_letter(url: str, title: str, company: str, resume_text: str, api_key: str = '') -> str:
     """Fetch the job description and return a full tailored cover letter as text."""
     description, ld_title, ld_company = fetch_job_info(url)
+    if not description or len(description) <= 100:
+        raise ValueError("Couldn't fetch the job description, so a tailored cover letter isn't possible. Open the job directly and copy the description.")
     role = title or ld_title or 'this role'
     company_name = company or ld_company or 'your company'
 

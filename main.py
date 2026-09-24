@@ -514,7 +514,7 @@ function renderSingle(data) {
       <div class="score-circle" style="background:${col.bg}">${data.score}</div>
       <div style="flex:1">
         <div style="font-size:15px;font-weight:700;color:#1a202c;margin-bottom:4px;">
-          ${data.title}${data.company ? ' @ ' + data.company : ''}
+          ${data.title || 'Job title unavailable'}${data.company ? ' @ ' + data.company : ''}
         </div>
         <span class="verdict-badge" style="${col.chip}">${data.verdict}</span>
         ${data.company_blurb ? `<div style="font-size:12px;color:#718096;margin-top:6px;line-height:1.5">${data.company_blurb}</div>` : ''}
@@ -532,7 +532,7 @@ function renderSingle(data) {
     </div>` : ''}
     <div class="rec">${data.recommendation}</div>
     <p class="desc-note">${data.description_used ? '✓ Full description fetched.' : ''}</p>
-    ${data.score >= 65 ? renderCoverLetterSection(data) : ''}`;
+    ${data.score >= 65 && data.description_used ? renderCoverLetterSection(data) : ''}`;
 }
 
 // ── Cover letter section ──
@@ -774,6 +774,8 @@ async def cover_letter(
         raise HTTPException(status_code=400, detail='Could not extract text from resume. Try a different file.')
     try:
         text = generate_cover_letter(url, title, company, resume_text, api_key=api_key)
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
     except RuntimeError as e:
         raise HTTPException(status_code=503, detail=str(e))
     except Exception as e:
