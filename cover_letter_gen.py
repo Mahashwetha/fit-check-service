@@ -85,7 +85,7 @@ def _assemble(candidate_name: str, role: str, company: str, parts: dict) -> str:
         "My LinkedIn profile: https://linkedin.com/in/mahashwetha-rao",
         "",
         "Sincerely,",
-        candidate_name,
+        candidate_name if candidate_name == 'the candidate' else candidate_name.split()[0],
     ]
     return "\n".join(paragraphs)
 
