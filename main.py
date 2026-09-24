@@ -570,7 +570,7 @@ async function generateCoverLetter(btn) {
     if (!resp.ok) throw new Error(data.detail || JSON.stringify(data));
     const rawText = data.text;
     const escaped = rawText.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
-    outputEl.innerHTML = escaped.replace(/(https?:\/\/[^\s]+)/g, '<a href="$1" target="_blank" rel="noopener" style="color:#667eea;">$1</a>');
+    outputEl.innerHTML = escaped.replace(/(https?:[/][/][!-~]+)/g, '<a href="$1" target="_blank" rel="noopener" style="color:#667eea;">$1</a>');
     outputEl.style.display = 'block';
     btn.style.display = 'none';
     // insert copy button after output
