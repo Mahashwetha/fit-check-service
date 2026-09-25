@@ -9,6 +9,7 @@ Endpoints:
   GET  /health
 """
 
+import json
 import os
 from collections import defaultdict
 from datetime import date
@@ -321,6 +322,10 @@ HTML = """<!DOCTYPE html>
 
 <script>
 // ── API key persistence ──
+// Cover-letter profile (projects paragraph, closing, links) generated once per resume and kept
+// in this browser only, so letters from the same resume stay consistent; the server stores nothing.
+function saveProfile(p) { try { localStorage.setItem('fitcheck_profile', JSON.stringify(p)); } catch(e) {} }
+function loadProfile() { try { return localStorage.getItem('fitcheck_profile') || ''; } catch(e) { return ''; } }
 function saveKey(v) { try { localStorage.setItem('fitcheck_key', v); } catch(e) {} }
 function loadKey() { try { return localStorage.getItem('fitcheck_key') || ''; } catch(e) { return ''; } }
 function toggleKey() {
@@ -563,11 +568,13 @@ async function generateCoverLetter(btn) {
   fd.append('company', company || '');
   fd.append('api_key', getApiKey());
   fd.append('resume', getResumeFile());
+  fd.append('profile', loadProfile());
 
   try {
     const resp = await fetch('/cover-letter', { method: 'POST', body: fd });
     const data = await resp.json();
     if (!resp.ok) throw new Error(data.detail || JSON.stringify(data));
+    if (data.profile) saveProfile(data.profile);
     const rawText = data.text;
     const escaped = rawText.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
     outputEl.innerHTML = escaped.replace(/(https?:[/][/][!-~]+)/g, '<a href="$1" target="_blank" rel="noopener" style="color:#667eea;">$1</a>');
@@ -762,6 +769,7 @@ async def cover_letter(
     company: str = Form(''),
     api_key: str = Form(''),
     resume: UploadFile = File(...),
+    profile: str = Form(''),
 ):
     file_bytes = await resume.read()
     if not file_bytes:
@@ -772,15 +780,22 @@ async def cover_letter(
         raise HTTPException(status_code=400, detail=str(e))
     if len(resume_text.strip()) < 50:
         raise HTTPException(status_code=400, detail='Could not extract text from resume. Try a different file.')
+    # profile cached in the user's browser; untrusted, reused only if it matches this resume
+    cached = None
+    if profile and len(profile) < 8000:
+        try:
+            cached = json.loads(profile)
+        except (ValueError, TypeError):
+            cached = None
     try:
-        text = generate_cover_letter(url, title, company, resume_text, api_key=api_key)
+        text, new_profile = generate_cover_letter(url, title, company, resume_text, api_key=api_key, profile=cached)
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
     except RuntimeError as e:
         raise HTTPException(status_code=503, detail=str(e))
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f'Cover letter generation failed: {e}')
-    return JSONResponse(content={'text': text})
+        raise HTTPException(status_code=500, detail=f'Cover letter generation failed: {type(e).__name__}')
+    return JSONResponse(content={'text': text, 'profile': new_profile})
 
 
 # ── Batch endpoint ────────────────────────────────────────────────────────────

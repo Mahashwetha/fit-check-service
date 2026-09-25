@@ -84,7 +84,7 @@ def _extract_json(raw: str, kind: str = 'object') -> str:
 
 # ── Gemini call ───────────────────────────────────────────────────────────────
 
-def _call_gemini(prompt: str, api_key: str = '') -> str:
+def _call_gemini(prompt: str, api_key: str = '', temperature: float = 0.2) -> str:
     api_key = api_key or os.environ.get('GEMINI_API_KEY', '')
     if not api_key:
         raise RuntimeError('No Gemini API key provided. Enter your key in the form or set GEMINI_API_KEY on the server.')
@@ -92,17 +92,17 @@ def _call_gemini(prompt: str, api_key: str = '') -> str:
     payload = {
         'contents': [{'parts': [{'text': prompt}]}],
         'generationConfig': {
-            'temperature': 0.2,
+            'temperature': temperature,
             'maxOutputTokens': 8192,
         },
     }
     last_exc = None
     for attempt in range(3):
         try:
+            # key in a header, never in the URL: request errors include the URL and can reach the browser
             resp = requests.post(
                 GEMINI_URL,
-                headers={'Content-Type': 'application/json'},
-                params={'key': api_key},
+                headers={'Content-Type': 'application/json', 'x-goog-api-key': api_key},
                 json=payload,
                 timeout=30,
             )
