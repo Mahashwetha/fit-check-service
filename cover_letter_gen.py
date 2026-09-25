@@ -51,7 +51,7 @@ Reply ONLY with a JSON object with these keys (no markdown, no extra text):
 Rules:
 - matched_para and gap_para MUST be written in first person (I, my, me) — never refer to the candidate by name or use 'she/her/he/his/they'
 - matched_para: only mention skills/experience explicitly present in the resume AND relevant to the JD
-- gap_para: don't fabricate experience; use phrases like 'exposure to', 'actively expanding', 'hands-on with adjacent X and motivated to deepen Y'
+- gap_para: don't fabricate experience. State plainly what the candidate has not used, then mention only real adjacent experience found in the resume. Never claim the candidate is currently learning, deepening, expanding or upskilling in a gap technology unless the resume explicitly says so
 - Keep paragraphs at roughly the same length as natural cover letter prose
 - Tone: confident, specific, not generic"""
 
