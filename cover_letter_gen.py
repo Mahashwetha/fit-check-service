@@ -11,14 +11,16 @@ import re
 from scorer import _call_gemini, _extract_json, fetch_job_info
 
 PERSONAL_PROJECTS_PARA = (
-    "In parallel to my job search, I built several personal projects end-to-end: "
-    "an automated job-tracking pipeline (Python, Excel, SMTP, Gemini API, Claude API), "
-    "and Fit-Check — a live AI-powered job fit scorer deployed on Render "
-    "(FastAPI, Gemini 2.5 Flash, Docker) that parses any job URL against a resume and "
-    "returns a skill-by-skill breakdown. All of these are open sourced, usable by me "
-    "almost on daily basis for fast tracking many iterative activities and I learnt it all "
-    "by my self with help of claude and built from scratch."
+    "Outside work, I build and ship my own tools. I built an automated job-search pipeline "
+    "(Python, Gemini and Claude APIs) and Fit-Check, a live AI app on Render (FastAPI, Gemini, "
+    "Docker) that scores any job posting against a resume, skill by skill. Both are open source "
+    "and I use them every day, which is how I learned to design, deploy and maintain "
+    "AI-powered systems end to end."
 )
+
+BANNED_OPENINGS = ("i am writing", "i'm writing", "express my interest", "i am excited",
+                   "i'm excited", "with over", "i am thrilled", "i would like to apply",
+                   "aligns perfectly")
 
 CLOSE_PARA_TEMPLATE = (
     "Currently based in Paris, I am open to remote, hybrid, or on-site roles and am "
@@ -42,6 +44,8 @@ Job Description:
 Reply ONLY with a JSON object with these keys (no markdown, no extra text):
 {{
   "candidate_name": "<candidate's full name, extracted from the resume; 'the candidate' if not found>",
+  "opening_type": "<one of: achievement, company, capability>",
+  "opening_para": "<exactly 2 sentences that open the letter. Choose the ONE strongest opening for this job: achievement (one concrete, ideally quantified achievement that is literally in the resume, tied to an outcome this JD cares about); company (a concrete detail from the JD about what the company builds or has just announced, connected to the candidate's real experience); capability (the JD's single most critical requirement, stated with specific evidence from the resume). Sentence 2 connects it to the role at the company.>",
   "company_value_prop": "<what the company/platform does — plain noun phrase, max 12 words>",
   "role_hook": "<what this role builds/delivers — starts with an -ing verb, max 15 words>",
   "matched_para": "<full paragraph (3-5 sentences) written in first person (I, my, me) highlighting the candidate's existing skills/experience that directly match this JD — name specific tech/tools/experience from the resume that also appear in the JD; be concrete not vague>",
@@ -52,19 +56,27 @@ Rules:
 - matched_para and gap_para MUST be written in first person (I, my, me) — never refer to the candidate by name or use 'she/her/he/his/they'
 - matched_para: only mention skills/experience explicitly present in the resume AND relevant to the JD
 - gap_para: don't fabricate experience. State plainly what the candidate has not used, then mention only real adjacent experience found in the resume. Never claim the candidate is currently learning, deepening, expanding or upskilling in a gap technology unless the resume explicitly says so
+- opening_para must NOT contain "I am writing", "express my interest", "I am excited", "With over", "aligns perfectly", must not summarise the CV and must not explain why the candidate wants the job; it must name {company}; every fact and number must appear in the resume
+- NEVER re-label the candidate's domain to match the company's (e.g. do not call trade surveillance "payments" or video software "fintech"); describe past work exactly as the resume does, then connect it as "similar" or "transferable" if relevant
+- matched_para must NOT start with "With over" or restate the achievement already used in opening_para; use different evidence
 - Keep paragraphs at roughly the same length as natural cover letter prose
 - Tone: confident, specific, not generic"""
 
 
-def _assemble(candidate_name: str, role: str, company: str, parts: dict) -> str:
-    value_prop = parts.get('company_value_prop') or f"work at {company}"
-    role_hook = parts.get('role_hook') or f"contributing to {role}"
+def _opening(role: str, company: str, parts: dict) -> str:
+    """Gemini's opening_para if it follows the rules, else a neutral company-led opening."""
+    opening = (parts.get('opening_para') or '').strip()
+    low = opening.lower()
+    if opening and company.lower() in low and not any(b in low for b in BANNED_OPENINGS):
+        return opening
+    value_prop = (parts.get('company_value_prop') or '').strip().rstrip('.')
+    what = f"{company}'s {value_prop}" if value_prop else f"the {role} role at {company}"
+    return (f"{what[0].upper()}{what[1:]} is closely connected to the systems I have built so far. "
+            f"Here is the experience I would bring to the {role} role.")
 
-    intro = (
-        f"I am writing to express my interest in the {role} position at {company}. "
-        f"I am excited by the opportunity to contribute to {company}'s {value_prop} "
-        f"by {role_hook}."
-    )
+
+def _assemble(candidate_name: str, role: str, company: str, parts: dict) -> str:
+    intro = _opening(role, company, parts)
 
     paragraphs = [
         "Respected Hiring Manager,",
